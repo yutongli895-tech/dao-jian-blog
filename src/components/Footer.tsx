@@ -1,7 +1,7 @@
 import React from 'react';
 import { DaoIcon } from './DaoIcon';
 
-export const Footer = ({ t }: { t: any }) => {
+export const Footer = ({ t, onNavClick, onSubscribe }: { t: any; onNavClick: (item: string) => void; onSubscribe: () => void }) => {
   return (
     <footer className="bg-ink text-paper py-24 px-6 transition-colors duration-500">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
@@ -19,20 +19,27 @@ export const Footer = ({ t }: { t: any }) => {
         <div>
           <h4 className="text-xs uppercase tracking-widest font-bold mb-6 text-paper/40">{t.columns[0]}</h4>
           <ul className="space-y-4 text-sm">
-            <li><a href="#" className="hover:text-moss transition-colors">{t.links[0][0]}</a></li>
-            <li><a href="#" className="hover:text-moss transition-colors">{t.links[0][1]}</a></li>
-            <li><a href="#" className="hover:text-moss transition-colors">{t.links[0][2]}</a></li>
-            <li><a href="#" className="hover:text-moss transition-colors">{t.links[0][3]}</a></li>
+            {t.links[0].map((link: string) => (
+              <li key={link}>
+                <button onClick={() => onNavClick(link)} className="hover:text-moss transition-colors">
+                  {link}
+                </button>
+              </li>
+            ))}
           </ul>
         </div>
         
         <div>
           <h4 className="text-xs uppercase tracking-widest font-bold mb-6 text-paper/40">{t.columns[1]}</h4>
           <ul className="space-y-4 text-sm">
-            <li><a href="#" className="hover:text-moss transition-colors">{t.links[1][0]}</a></li>
-            <li><a href="#" className="hover:text-moss transition-colors">{t.links[1][1]}</a></li>
-            <li><a href="#" className="hover:text-moss transition-colors">{t.links[1][2]}</a></li>
-            <li><a href="#" className="hover:text-moss transition-colors">{t.links[1][3]}</a></li>
+            <li>
+              <button onClick={onSubscribe} className="hover:text-moss transition-colors">
+                {t.links[1][0]}
+              </button>
+            </li>
+            <li><a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="hover:text-moss transition-colors">{t.links[1][1]}</a></li>
+            <li><a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="hover:text-moss transition-colors">{t.links[1][2]}</a></li>
+            <li><a href="mailto:contact@daoinsight.com" className="hover:text-moss transition-colors">{t.links[1][3]}</a></li>
           </ul>
         </div>
       </div>

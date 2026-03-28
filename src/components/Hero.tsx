@@ -37,14 +37,15 @@ export const Hero = ({ t }: { t: any }) => {
         </motion.div>
 
         {/* Scroll Indicator */}
-        <motion.div 
-          className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4"
+        <motion.button 
+          onClick={() => document.getElementById('blog-section')?.scrollIntoView({ behavior: 'smooth' })}
+          className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 group cursor-pointer"
           animate={{ y: [0, 10, 0] }}
           transition={{ duration: 2, repeat: Infinity }}
         >
-          <div className="w-px h-16 bg-gradient-to-b from-paper/0 via-paper/50 to-paper/0" />
-          <span className="text-[10px] uppercase tracking-[0.3em] text-paper/40">{t.scroll}</span>
-        </motion.div>
+          <div className="w-px h-16 bg-gradient-to-b from-paper/0 via-paper/50 to-paper/0 group-hover:via-moss transition-colors" />
+          <span className="text-[10px] uppercase tracking-[0.3em] text-paper/40 group-hover:text-paper transition-colors">{t.scroll}</span>
+        </motion.button>
       </div>
 
       {/* Vertical Text Accents */}

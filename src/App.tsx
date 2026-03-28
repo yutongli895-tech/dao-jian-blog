@@ -6,8 +6,11 @@ import { BlogCard, Post } from './components/BlogCard';
 import { Footer } from './components/Footer';
 import { AdminLogin } from './components/AdminLogin';
 import { AdminDashboard } from './components/AdminDashboard';
+import { BlogPost } from './components/BlogPost';
+import { Modal } from './components/Modal';
 import { motion, AnimatePresence } from 'motion/react';
 import { translations } from './lib/translations';
+import { X } from 'lucide-react';
 
 export default function App() {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -15,6 +18,8 @@ export default function App() {
   const [lang, setLang] = useState<'cn' | 'en'>('cn');
   const [posts, setPosts] = useState<Post[]>([]);
   const [token, setToken] = useState<string | null>(localStorage.getItem('dao_token'));
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [modalType, setModalType] = useState<'about' | 'subscribe' | null>(null);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -62,6 +67,30 @@ export default function App() {
 
   const t = translations[lang];
 
+  const handleNavClick = (item: string) => {
+    if (item === t.nav[0] || item === 'Home' || item === '首页') {
+      setSelectedCategory(null);
+      navigate('/');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (item === t.nav[3] || item === 'About' || item === '关于') {
+      setModalType('about');
+    } else {
+      setSelectedCategory(item);
+      if (location.pathname !== '/') {
+        navigate('/');
+        setTimeout(() => {
+          document.getElementById('blog-section')?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      } else {
+        document.getElementById('blog-section')?.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  };
+
+  const filteredPosts = selectedCategory 
+    ? posts.filter(p => (lang === 'cn' ? p.category_cn : p.category_en) === selectedCategory)
+    : posts;
+
   return (
     <div className="min-h-screen selection:bg-moss selection:text-paper transition-colors duration-500">
       <AnimatePresence>
@@ -81,14 +110,29 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      <Modal 
+        isOpen={!!modalType} 
+        onClose={() => setModalType(null)} 
+        type={modalType} 
+        lang={lang} 
+      />
+
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={
           <>
-            <Navbar theme={theme} toggleTheme={toggleTheme} lang={lang} toggleLang={toggleLang} t={t} />
+            <Navbar 
+              theme={theme} 
+              toggleTheme={toggleTheme} 
+              lang={lang} 
+              toggleLang={toggleLang} 
+              t={t} 
+              onNavClick={handleNavClick}
+              onSubscribe={() => setModalType('subscribe')}
+            />
             <main>
               <Hero t={t.hero} />
-              <section className="max-w-7xl mx-auto px-6 py-32 relative">
+              <section id="blog-section" className="max-w-7xl mx-auto px-6 py-32 relative">
                 <div className="absolute top-0 right-0 w-96 h-96 opacity-[0.03] pointer-events-none text-ink">
                   <svg viewBox="0 0 100 100" className="w-full h-full">
                     <path d="M50 10 A40 40 0 1 1 49.9 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="200 50" />
@@ -97,20 +141,32 @@ export default function App() {
 
                 <div className="flex flex-col md:flex-row justify-between items-end mb-24 gap-8">
                   <div className="max-w-xl">
-                    <span className="text-xs uppercase tracking-[0.3em] text-moss font-bold mb-4 block">{t.blog.tag}</span>
-                    <h2 className="text-5xl md:text-6xl font-serif leading-tight">{t.blog.title}</h2>
+                    <div className="flex items-center gap-4 mb-4">
+                      <span className="text-xs uppercase tracking-[0.3em] text-moss font-bold block">{t.blog.tag}</span>
+                      {selectedCategory && (
+                        <button 
+                          onClick={() => setSelectedCategory(null)}
+                          className="text-[10px] uppercase tracking-widest text-ink/40 hover:text-ink flex items-center gap-1"
+                        >
+                          <X className="w-3 h-3" /> {lang === 'cn' ? '清除筛选' : 'Clear Filter'}
+                        </button>
+                      )}
+                    </div>
+                    <h2 className="text-5xl md:text-6xl font-serif leading-tight">
+                      {selectedCategory ? `${selectedCategory}` : t.blog.title}
+                    </h2>
                   </div>
                   <div className="text-ink/40 text-sm font-serif italic max-w-xs text-right">{t.blog.quote}</div>
                 </div>
                 
                 <div className="space-y-24">
-                  {posts.length > 0 ? (
-                    posts.map((post, index) => (
+                  {filteredPosts.length > 0 ? (
+                    filteredPosts.map((post, index) => (
                       <BlogCard key={post.id} post={post} index={index} lang={lang} />
                     ))
                   ) : (
                     <div className="py-24 text-center text-ink/20 font-serif italic">
-                      {lang === 'cn' ? '暂无文章，请前往后台发布。' : 'No posts yet. Please visit admin to publish.'}
+                      {lang === 'cn' ? '该分类下暂无文章。' : 'No posts in this category yet.'}
                     </div>
                   )}
                 </div>
@@ -126,9 +182,26 @@ export default function App() {
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] aspect-square border border-ink/5 rounded-full pointer-events-none" />
               </section>
             </main>
-            <Footer t={t.footer} />
+            <Footer 
+              t={t.footer} 
+              onNavClick={handleNavClick}
+              onSubscribe={() => setModalType('subscribe')}
+            />
           </>
         } />
+        <Route 
+          path="/post/:id" 
+          element={
+            <BlogPost 
+              theme={theme} 
+              toggleTheme={toggleTheme} 
+              lang={lang} 
+              toggleLang={toggleLang} 
+              onNavClick={handleNavClick}
+              onSubscribe={() => setModalType('subscribe')}
+            />
+          } 
+        />
 
         {/* Admin Routes */}
         <Route path="/login" element={<AdminLogin onLogin={handleLogin} />} />

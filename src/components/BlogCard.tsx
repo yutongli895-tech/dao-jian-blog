@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ArrowUpRight } from 'lucide-react';
 
@@ -18,9 +19,16 @@ export interface Post {
 }
 
 export const BlogCard = ({ post, index, lang }: { post: Post; index: number; lang: 'cn' | 'en' }) => {
+  const navigate = useNavigate();
   const title = lang === 'cn' ? post.title_cn : post.title_en;
   const excerpt = lang === 'cn' ? post.excerpt_cn : post.excerpt_en;
   const category = lang === 'cn' ? post.category_cn : post.category_en;
+
+  const handleClick = () => {
+    if (post.id) {
+      navigate(`/post/${post.id}`);
+    }
+  };
 
   return (
     <motion.div 
@@ -28,6 +36,7 @@ export const BlogCard = ({ post, index, lang }: { post: Post; index: number; lan
       whileInView={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: index * 0.1 }}
       viewport={{ once: true }}
+      onClick={handleClick}
       className="group cursor-pointer border-b border-ink/10 pb-12 hover:border-ink/30 transition-colors"
     >
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
