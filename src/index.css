@@ -159,6 +159,11 @@
   @apply my-12 flex justify-center !bg-transparent;
 }
 
+/* Hide Mermaid's default error output which can sometimes leak to the bottom of the page */
+#mermaid-error-id, .mermaid-error {
+  display: none !important;
+}
+
 /* Abstract Section Styling */
 .abstract-container {
   @apply mb-24 py-12 border-y border-moss/10 relative;

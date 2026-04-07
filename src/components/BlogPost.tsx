@@ -14,11 +14,21 @@ import mermaid from 'mermaid';
 // Mermaid component to render diagrams
 const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) => {
   const [svg, setSvg] = useState<string>('');
-  const [error, setError] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     const renderChart = async () => {
-      if (!chart) return;
+      if (!chart || chart.trim().length < 5) return;
+      
       try {
         const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
         const isDark = theme === 'dark';
@@ -28,6 +38,8 @@ const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) =
           theme: isDark ? 'dark' : 'base',
           securityLevel: 'loose',
           fontFamily: 'Noto Serif SC, serif',
+          // Suppress the default error output to avoid "Syntax error in text" spam
+          suppressError: true,
           themeVariables: {
             primaryColor: '#00896C',
             primaryTextColor: '#FFFFFF',
@@ -44,23 +56,43 @@ const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) =
             nodeRadius: '4px'
           }
         });
+
+        // Validate if it's a valid mermaid chart before rendering
+        // Mermaid.parse is async in newer versions
+        try {
+          await mermaid.parse(chart);
+        } catch (e) {
+          if (isMounted.current) setError('Invalid Mermaid Syntax');
+          return;
+        }
+
         const { svg: renderedSvg } = await mermaid.render(id, chart);
-        setSvg(renderedSvg);
-        setError(false);
+        if (isMounted.current) {
+          setSvg(renderedSvg);
+          setError(null);
+        }
       } catch (err) {
         console.error('Mermaid render error:', err);
-        setError(true);
+        if (isMounted.current) setError('Render Error');
       }
     };
     renderChart();
   }, [chart, theme]);
 
-  if (error) return <pre className="text-xs text-red-500 p-4 bg-red-50 overflow-x-auto">{chart}</pre>;
+  if (error) {
+    return (
+      <div className="my-8 p-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/20 rounded-sm">
+        <p className="text-xs font-mono text-red-600 dark:text-red-400 mb-2">{error}</p>
+        <pre className="text-[10px] text-ink/40 overflow-x-auto">{chart}</pre>
+      </div>
+    );
+  }
 
   return (
     <div 
+      ref={containerRef}
       className="mermaid-container flex justify-center my-16 overflow-x-auto w-full bg-mist p-8 rounded-sm border border-moss/10 shadow-sm transition-colors duration-500" 
-      dangerouslySetInnerHTML={{ __html: svg || '<div class="animate-pulse h-40 bg-moss/5 w-full rounded-sm"></div>' }}
+      dangerouslySetInnerHTML={{ __html: svg || '<div class="animate-pulse h-40 bg-moss/5 w-full rounded-sm flex items-center justify-center text-moss/20 text-xs uppercase tracking-widest">Rendering Diagram...</div>' }}
     />
   );
 };
@@ -140,11 +172,11 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
     // Normalize line endings
     .replace(/\r\n/g, '\n')
     // Ensure Mermaid blocks have blank lines before and after, and remove indentation
-    .replace(/^\s*```mermaid\s*([\s\S]*?)```/gm, (match, p1) => {
+    .replace(/[ \t]*```mermaid\s*([\s\S]*?)```/g, (match, p1) => {
       return `\n\n\`\`\`mermaid\n${p1.trim()}\n\`\`\`\n\n`;
     })
-    // Ensure tables have a blank line before them and remove leading spaces
-    .replace(/([^\n])\n\s*\|/g, '$1\n\n|')
+    // Ensure tables have a blank line before them
+    .replace(/([^\n])\n[ \t]*\|/g, '$1\n\n|')
     // Ensure tables have a blank line after them
     .replace(/\|\n([^\n|])/g, '|\n\n$1')
     // Ensure table rows are not separated by extra spaces
@@ -231,8 +263,10 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
                 </div>
                 <div className="abstract-content-wrapper flex-col sm:flex-row gap-6 sm:gap-10">
                   <div className="abstract-drop-cap text-7xl sm:text-9xl">“道”</div>
-                  <div className="abstract-text text-lg sm:text-2xl">
-                    {summary}
+                  <div className="abstract-text text-lg sm:text-2xl prose prose-ink dark:prose-invert max-w-none">
+                    <Markdown remarkPlugins={[remarkGfm]}>
+                      {summary}
+                    </Markdown>
                   </div>
                 </div>
               </motion.div>
@@ -280,28 +314,32 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
                   },
                   code({ node, inline, className, children, ...props }: any) {
                     const content = String(children).trim();
-                    // More robust Mermaid detection
-                    const isMermaid = className?.includes('language-mermaid') || 
-                                     className?.includes('mermaid') ||
-                                     content.startsWith('graph ') || 
-                                     content.startsWith('graph TD') ||
-                                     content.startsWith('sequenceDiagram') ||
-                                     content.startsWith('pie') ||
-                                     content.startsWith('gantt') ||
-                                     content.includes('```mermaid') ||
-                                     content.includes('graph TD') ||
-                                     content.includes('graph LR');
+                    const isMermaid = className?.includes('language-mermaid') || className?.includes('mermaid');
                     
                     if (!inline && isMermaid) {
-                      // Clean the chart code
+                      // Clean the chart code - remove any markdown artifacts
                       const chart = content
                         .replace(/^mermaid\n?/, '')
                         .replace(/^```mermaid\n?/, '')
                         .replace(/\n?```$/, '')
-                        .replace(/^```mermaid\n?/, '') // Double check for nested backticks
                         .trim();
-                      return <Mermaid key={chart.substring(0, 30)} chart={chart} theme={theme} />;
+                      return <Mermaid key={chart.substring(0, 50)} chart={chart} theme={theme} />;
                     }
+                    
+                    // Fallback for cases where mermaid might be in a generic code block but starts with graph/sequence etc.
+                    if (!inline && !className && (
+                      content.startsWith('graph ') || 
+                      content.startsWith('graph TD') || 
+                      content.startsWith('graph LR') ||
+                      content.startsWith('sequenceDiagram') ||
+                      content.startsWith('pie') ||
+                      content.startsWith('gantt') ||
+                      content.startsWith('classDiagram') ||
+                      content.startsWith('stateDiagram')
+                    )) {
+                      return <Mermaid key={content.substring(0, 50)} chart={content} theme={theme} />;
+                    }
+
                     return (
                       <code className={className} {...props}>
                         {children}
