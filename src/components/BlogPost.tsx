@@ -85,15 +85,20 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
   const category = lang === 'cn' ? post.category_cn : post.category_en;
 
   // Strip frontmatter and <!--more-->
-  const { content: cleanContent } = matter(rawContent || '');
+  const { data: frontmatter, content: cleanContent } = matter(rawContent || '');
   const finalContent = cleanContent.replace(/<!--more-->/g, '');
+  const summary = lang === 'cn' ? frontmatter.summary_cn || frontmatter.summary : frontmatter.summary_en || frontmatter.summary;
 
   // Calculate reading time
   const wordCount = finalContent?.length || 0;
   const readingTime = Math.ceil(wordCount / (lang === 'cn' ? 300 : 200));
 
   return (
-    <div className="min-h-screen bg-paper transition-colors duration-500">
+    <div className="min-h-screen bg-paper transition-colors duration-500 relative overflow-hidden">
+      {/* Aesthetic Background Elements */}
+      <div className="absolute top-0 left-0 w-full h-[1000px] bg-gradient-to-b from-moss/5 to-transparent pointer-events-none" />
+      <div className="absolute top-[20%] -right-[10%] w-[40%] h-[40%] bg-moss/5 blur-[120px] rounded-full pointer-events-none" />
+      
       <Navbar 
         theme={theme} 
         toggleTheme={toggleTheme} 
@@ -104,8 +109,8 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
         onSubscribe={onSubscribe}
       />
       
-      <main className="pt-32 pb-24 px-6">
-        <article className="max-w-4xl mx-auto">
+      <main className="pt-32 pb-24 px-6 relative z-10">
+        <article className="max-w-3xl mx-auto">
           <motion.button
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -144,16 +149,33 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="text-5xl md:text-7xl font-serif leading-tight mb-12 tracking-tight"
+              className="text-5xl md:text-6xl font-serif leading-[1.15] mb-12 tracking-tight text-ink"
             >
               {title}
             </motion.h1>
 
+            {summary && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25 }}
+                className="mb-16 p-8 md:p-10 bg-moss/[0.03] border-l-2 border-moss/20 rounded-r-sm relative overflow-hidden group"
+              >
+                <div className="absolute top-0 left-0 w-1 h-full bg-moss/10 group-hover:bg-moss/30 transition-colors" />
+                <div className="text-[10px] uppercase tracking-[0.3em] font-bold text-moss/40 mb-4">
+                  {lang === 'cn' ? '文章摘要' : 'Abstract'}
+                </div>
+                <p className="text-xl md:text-2xl font-serif italic leading-relaxed text-ink/70">
+                  {summary}
+                </p>
+              </motion.div>
+            )}
+
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3, duration: 0.8 }}
-              className="aspect-[21/9] rounded-sm overflow-hidden mb-16 grayscale hover:grayscale-0 transition-all duration-1000 group relative"
+              transition={{ delay: 0.3, duration: 1.2 }}
+              className="aspect-[21/9] rounded-sm overflow-hidden mb-16 grayscale hover:grayscale-0 transition-all duration-1000 group relative shadow-2xl shadow-ink/5"
             >
               <div className="absolute inset-0 bg-ink/5 group-hover:bg-transparent transition-colors duration-1000 z-10" />
               <img 
@@ -169,9 +191,9 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="prose prose-ink dark:prose-invert max-w-none"
+            className="prose prose-ink dark:prose-invert max-w-none relative"
           >
-            <div className="markdown-body drop-cap">
+            <div className="markdown-body drop-cap selection:bg-moss/20">
               <Markdown 
                 remarkPlugins={[remarkGfm]}
                 components={{
