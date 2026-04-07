@@ -12,7 +12,7 @@ import matter from 'gray-matter';
 import mermaid from 'mermaid';
 
 // Mermaid component to render diagrams
-const Mermaid = ({ chart }: { chart: string }) => {
+const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) => {
   const [svg, setSvg] = useState<string>('');
   const [error, setError] = useState<boolean>(false);
 
@@ -21,9 +21,11 @@ const Mermaid = ({ chart }: { chart: string }) => {
       if (!chart) return;
       try {
         const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
+        const isDark = theme === 'dark';
+        
         mermaid.initialize({ 
           startOnLoad: false, 
-          theme: 'base',
+          theme: isDark ? 'dark' : 'base',
           securityLevel: 'loose',
           fontFamily: 'Noto Serif SC, serif',
           themeVariables: {
@@ -31,14 +33,14 @@ const Mermaid = ({ chart }: { chart: string }) => {
             primaryTextColor: '#FFFFFF',
             primaryBorderColor: '#00896C',
             lineColor: '#00896C',
-            secondaryColor: '#F2F0E9',
-            tertiaryColor: '#FFFFFF',
+            secondaryColor: isDark ? '#1E1E1E' : '#F2F0E9',
+            tertiaryColor: isDark ? '#121212' : '#FFFFFF',
             fontSize: '16px',
             mainBkg: '#00896C',
             nodeBorder: '#00896C',
-            clusterBkg: '#F2F0E9',
+            clusterBkg: isDark ? '#1E1E1E' : '#F2F0E9',
             titleColor: '#00896C',
-            edgeLabelBackground: '#FDFCF8',
+            edgeLabelBackground: isDark ? '#121212' : '#FDFCF8',
             nodeRadius: '4px'
           }
         });
@@ -51,13 +53,13 @@ const Mermaid = ({ chart }: { chart: string }) => {
       }
     };
     renderChart();
-  }, [chart]);
+  }, [chart, theme]);
 
   if (error) return <pre className="text-xs text-red-500 p-4 bg-red-50 overflow-x-auto">{chart}</pre>;
 
   return (
     <div 
-      className="mermaid-container flex justify-center my-16 overflow-x-auto w-full" 
+      className="mermaid-container flex justify-center my-16 overflow-x-auto w-full bg-mist p-8 rounded-sm border border-moss/10 shadow-sm transition-colors duration-500" 
       dangerouslySetInnerHTML={{ __html: svg || '<div class="animate-pulse h-40 bg-moss/5 w-full rounded-sm"></div>' }}
     />
   );
@@ -135,11 +137,18 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
 
   // Pre-process content to ensure Mermaid blocks and Tables are correctly identified
   const processedContent = finalContent
-    .replace(/```mermaid\s*([\s\S]*?)```/g, (match, p1) => {
+    // Normalize line endings
+    .replace(/\r\n/g, '\n')
+    // Ensure Mermaid blocks have blank lines before and after, and remove indentation
+    .replace(/^\s*```mermaid\s*([\s\S]*?)```/gm, (match, p1) => {
       return `\n\n\`\`\`mermaid\n${p1.trim()}\n\`\`\`\n\n`;
     })
-    // Fix tables that might be missing newlines before them
-    .replace(/([^\n])\n\|/g, '$1\n\n|');
+    // Ensure tables have a blank line before them and remove leading spaces
+    .replace(/([^\n])\n\s*\|/g, '$1\n\n|')
+    // Ensure tables have a blank line after them
+    .replace(/\|\n([^\n|])/g, '|\n\n$1')
+    // Ensure table rows are not separated by extra spaces
+    .replace(/\|\s*\n\s*\|/g, '|\n|');
 
   return (
     <div className="min-h-screen bg-paper transition-colors duration-500 relative overflow-hidden">
@@ -205,7 +214,7 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="text-5xl md:text-6xl font-serif leading-[1.15] mb-12 tracking-tight text-ink"
+              className="text-4xl md:text-6xl font-serif leading-[1.15] mb-12 tracking-tight text-ink"
             >
               {title}
             </motion.h1>
@@ -220,9 +229,9 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
                 <div className="abstract-title">
                   {lang === 'cn' ? '文章摘要' : 'Abstract'}
                 </div>
-                <div className="abstract-content-wrapper">
-                  <div className="abstract-drop-cap">“道”</div>
-                  <div className="abstract-text">
+                <div className="abstract-content-wrapper flex-col sm:flex-row gap-6 sm:gap-10">
+                  <div className="abstract-drop-cap text-7xl sm:text-9xl">“道”</div>
+                  <div className="abstract-text text-lg sm:text-2xl">
                     {summary}
                   </div>
                 </div>
@@ -233,7 +242,7 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3, duration: 1.2 }}
-              className="aspect-[21/9] rounded-sm overflow-hidden mb-16 grayscale hover:grayscale-0 transition-all duration-1000 group relative shadow-2xl shadow-ink/5"
+              className="aspect-[16/10] sm:aspect-[21/9] rounded-sm overflow-hidden mb-16 grayscale hover:grayscale-0 transition-all duration-1000 group relative shadow-2xl shadow-ink/5"
             >
               <div className="absolute inset-0 bg-ink/5 group-hover:bg-transparent transition-colors duration-1000 z-10" />
               <img 
@@ -273,11 +282,15 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
                     const content = String(children).trim();
                     // More robust Mermaid detection
                     const isMermaid = className?.includes('language-mermaid') || 
+                                     className?.includes('mermaid') ||
                                      content.startsWith('graph ') || 
                                      content.startsWith('graph TD') ||
                                      content.startsWith('sequenceDiagram') ||
                                      content.startsWith('pie') ||
-                                     content.startsWith('gantt');
+                                     content.startsWith('gantt') ||
+                                     content.includes('```mermaid') ||
+                                     content.includes('graph TD') ||
+                                     content.includes('graph LR');
                     
                     if (!inline && isMermaid) {
                       // Clean the chart code
@@ -285,8 +298,9 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
                         .replace(/^mermaid\n?/, '')
                         .replace(/^```mermaid\n?/, '')
                         .replace(/\n?```$/, '')
+                        .replace(/^```mermaid\n?/, '') // Double check for nested backticks
                         .trim();
-                      return <Mermaid chart={chart} />;
+                      return <Mermaid key={chart.substring(0, 30)} chart={chart} theme={theme} />;
                     }
                     return (
                       <code className={className} {...props}>

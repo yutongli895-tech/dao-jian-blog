@@ -30,7 +30,7 @@ export const AdminLogin = ({ onLogin }: { onLogin: (token: string) => void }) =>
       <motion.div 
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md p-12 border border-ink/10 bg-paper shadow-2xl"
+        className="w-full max-w-md p-8 sm:p-12 border border-ink/10 bg-paper shadow-2xl"
       >
         <h1 className="text-3xl font-serif mb-8 text-center uppercase tracking-widest">管理员登录</h1>
         <form onSubmit={handleSubmit} className="space-y-6">

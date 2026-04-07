@@ -54,11 +54,11 @@ export const BlogCard = ({ post, index, lang }: { post: Post; index: number; lan
             </span>
           </div>
           
-          <h2 className="text-3xl md:text-4xl font-serif mb-4 group-hover:italic transition-all duration-500">
+          <h2 className="text-2xl md:text-4xl font-serif mb-4 group-hover:italic transition-all duration-500">
             {title}
           </h2>
           
-          <p className="text-ink/60 text-sm leading-relaxed max-w-xl mb-6">
+          <p className="text-ink/60 text-sm leading-relaxed max-w-xl mb-6 line-clamp-3 md:line-clamp-none">
             {excerpt}
           </p>
           
@@ -67,7 +67,7 @@ export const BlogCard = ({ post, index, lang }: { post: Post; index: number; lan
           </div>
         </div>
         
-        <div className="md:col-span-4 overflow-hidden aspect-[4/3] rounded-sm">
+        <div className="md:col-span-4 overflow-hidden aspect-[16/9] md:aspect-[4/3] rounded-sm">
           <img 
             src={post.image} 
             alt={title} 

@@ -24,7 +24,7 @@ export const Modal = ({ isOpen, onClose, type, lang }: ModalProps) => {
             initial={{ scale: 0.9, y: 20 }}
             animate={{ scale: 1, y: 0 }}
             exit={{ scale: 0.9, y: 20 }}
-            className="bg-paper p-12 max-w-lg w-full relative border border-ink/10 shadow-2xl"
+            className="bg-paper p-6 sm:p-12 max-w-lg w-full relative border border-ink/10 shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
             <button 

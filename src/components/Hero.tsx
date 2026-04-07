@@ -25,7 +25,7 @@ export const Hero = ({ t }: { t: any }) => {
           <span className="text-paper/60 uppercase tracking-[0.5em] text-xs mb-6 block font-medium">
             {t.subtitle}
           </span>
-          <h1 className="text-6xl md:text-9xl font-serif text-paper leading-tight mb-8 tracking-tighter">
+          <h1 className="text-5xl md:text-9xl font-serif text-paper leading-tight mb-8 tracking-tighter">
             {t.title}
           </h1>
           <p className="text-paper/70 text-lg md:text-xl font-serif italic max-w-2xl mx-auto leading-relaxed">

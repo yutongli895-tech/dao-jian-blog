@@ -115,20 +115,20 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
   };
 
   return (
-    <div className="min-h-screen bg-paper p-8 md:p-12">
+    <div className="min-h-screen bg-paper p-4 sm:p-8 md:p-12">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-12">
-          <h1 className="text-4xl font-serif tracking-widest uppercase">后台管理系统</h1>
-          <div className="flex gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-12 gap-6">
+          <h1 className="text-2xl sm:text-4xl font-serif tracking-widest uppercase">后台管理系统</h1>
+          <div className="flex flex-wrap gap-4 w-full sm:w-auto">
             <button 
               onClick={() => openEdit(null)}
-              className="px-6 py-2 bg-moss text-paper flex items-center gap-2 text-xs uppercase tracking-widest hover:bg-ink transition-colors"
+              className="flex-1 sm:flex-none px-6 py-2 bg-moss text-paper flex items-center justify-center gap-2 text-xs uppercase tracking-widest hover:bg-ink transition-colors"
             >
               <Plus className="w-4 h-4" /> 发布新文章
             </button>
             <button 
               onClick={onLogout}
-              className="px-6 py-2 border border-ink/20 flex items-center gap-2 text-xs uppercase tracking-widest hover:bg-ink hover:text-paper transition-colors"
+              className="flex-1 sm:flex-none px-6 py-2 border border-ink/20 flex items-center justify-center gap-2 text-xs uppercase tracking-widest hover:bg-ink hover:text-paper transition-colors"
             >
               <LogOut className="w-4 h-4" /> 退出
             </button>
@@ -158,22 +158,22 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="relative w-full max-w-4xl bg-paper p-12 max-h-[90vh] overflow-y-auto shadow-2xl"
+            className="relative w-full max-w-4xl bg-paper p-6 sm:p-12 max-h-[90vh] overflow-y-auto shadow-2xl"
           >
-            <div className="flex justify-between items-center mb-8">
-              <div className="flex items-center gap-4">
-                <h2 className="text-2xl font-serif uppercase tracking-widest">{editingPost.id ? '编辑文章' : '发布文章'}</h2>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full">
+                <h2 className="text-xl sm:text-2xl font-serif uppercase tracking-widest">{editingPost.id ? '编辑文章' : '发布文章'}</h2>
                 <button 
                   type="button"
                   onClick={translateWithAI}
                   disabled={isTranslating}
-                  className="flex items-center gap-2 px-4 py-1 border border-moss text-moss text-[10px] uppercase tracking-widest hover:bg-moss hover:text-paper transition-all disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 px-4 py-1 border border-moss text-moss text-[10px] uppercase tracking-widest hover:bg-moss hover:text-paper transition-all disabled:opacity-50 w-full sm:w-auto"
                 >
                   {isTranslating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Languages className="w-3 h-3" />}
                   {isTranslating ? '翻译中...' : '一键翻译至英文'}
                 </button>
               </div>
-              <button onClick={() => setIsModalOpen(false)}><X className="w-6 h-6" /></button>
+              <button onClick={() => setIsModalOpen(false)} className="absolute top-6 right-6 sm:relative sm:top-0 sm:right-0"><X className="w-6 h-6" /></button>
             </div>
 
             <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-8">

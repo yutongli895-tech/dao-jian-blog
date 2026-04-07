@@ -130,11 +130,11 @@
 }
 
 .dark .prose p, .dark .markdown-body p {
-  @apply text-paper/90;
+  @apply text-ink/90;
 }
 
 .dark .prose h1, .dark .prose h2, .dark .prose h3, .dark .markdown-body h1, .dark .markdown-body h2, .dark .markdown-body h3 {
-  @apply text-paper;
+  @apply text-ink;
 }
 
 .dark .prose strong, .dark .markdown-body strong {
@@ -142,7 +142,7 @@
 }
 
 .dark .prose blockquote, .dark .markdown-body blockquote {
-  @apply border-moss/50 text-paper/80;
+  @apply border-moss/50 text-ink/80;
   background: linear-gradient(to right, rgba(255,255,255,0.05), transparent);
 }
 
