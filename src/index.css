@@ -87,6 +87,31 @@
   @apply italic opacity-90;
 }
 
+.prose h1, .markdown-body h1 { @apply text-4xl font-serif mb-8 text-ink leading-tight; }
+.prose h2, .markdown-body h2 { @apply text-2xl font-serif mt-16 mb-6 text-ink flex items-center gap-3; }
+.prose h3, .markdown-body h3 { @apply text-xl font-serif mt-12 mb-4 text-ink opacity-90; }
+
+.prose p, .markdown-body p { @apply mb-6 leading-[1.8] text-lg text-ink/80 font-serif; }
+
+.prose ul, .markdown-body ul { @apply mb-8 space-y-3; }
+.prose li, .markdown-body li { @apply relative pl-6 text-lg text-ink/80 font-serif; }
+.prose li::before, .markdown-body li::before {
+  content: "•";
+  @apply absolute left-0 text-moss font-bold;
+}
+
+.prose blockquote, .markdown-body blockquote {
+  @apply my-12 p-8 bg-moss/[0.02] border-l-0 relative italic text-2xl font-serif text-ink/60 leading-relaxed text-center;
+}
+.prose blockquote::before, .markdown-body blockquote::before {
+  content: "“";
+  @apply block text-6xl text-moss/20 font-serif mb-[-20px];
+}
+.prose blockquote::after, .markdown-body blockquote::after {
+  content: "”";
+  @apply block text-6xl text-moss/20 font-serif mt-[-10px];
+}
+
 .prose table, .markdown-body table {
   @apply w-full my-12 border-collapse text-left overflow-hidden rounded-sm shadow-sm;
   background: var(--mist);
@@ -144,7 +169,28 @@
 
 /* Mermaid Styling */
 .mermaid {
-  @apply shadow-inner border border-moss/10;
+  @apply my-12 flex justify-center !bg-transparent;
+}
+
+/* Abstract Section Styling */
+.abstract-container {
+  @apply flex gap-8 items-start mb-20 py-10 border-y border-moss/10;
+}
+
+.abstract-drop-cap {
+  @apply text-8xl font-serif text-moss leading-none select-none pt-2;
+}
+
+.abstract-content {
+  @apply flex-1;
+}
+
+.golden-sentence {
+  @apply mt-24 p-10 bg-moss/[0.03] border border-moss/10 rounded-sm relative text-center italic;
+}
+
+.golden-sentence-icon {
+  @apply absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 bg-paper border border-moss/20 rounded-full flex items-center justify-center text-moss text-xs font-bold shadow-sm;
 }
 
 .ink-gradient {

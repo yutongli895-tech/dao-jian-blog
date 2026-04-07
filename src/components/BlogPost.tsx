@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ArrowLeft, Calendar, Tag, Share2 } from 'lucide-react';
+import { ArrowLeft, Calendar, Tag, Share2, Home, Zap, Target, Compass } from 'lucide-react';
 import { Post } from './BlogCard';
 import { Navbar } from './Navbar';
 import { Footer } from './Footer';
@@ -19,16 +19,25 @@ const Mermaid = ({ chart }: { chart: string }) => {
     if (ref.current) {
       mermaid.initialize({ 
         startOnLoad: true, 
-        theme: 'neutral',
+        theme: 'base',
         securityLevel: 'loose',
-        fontFamily: 'Inter'
+        fontFamily: 'Noto Serif SC, serif',
+        themeVariables: {
+          primaryColor: '#2D4B44',
+          primaryTextColor: '#FDFCF8',
+          primaryBorderColor: '#2D4B44',
+          lineColor: '#2D4B44',
+          secondaryColor: '#E8F0EE',
+          tertiaryColor: '#FDFCF8',
+          fontSize: '14px'
+        }
       });
       mermaid.contentLoaded();
     }
   }, [chart]);
 
   return (
-    <div className="mermaid flex justify-center my-12 bg-white/50 dark:bg-white/5 p-8 rounded-sm overflow-x-auto" ref={ref}>
+    <div className="mermaid flex justify-center my-16 overflow-x-auto" ref={ref}>
       {chart}
     </div>
   );
@@ -159,15 +168,17 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.25 }}
-                className="mb-16 p-8 md:p-10 bg-moss/[0.03] border-l-2 border-moss/20 rounded-r-sm relative overflow-hidden group"
+                className="abstract-container"
               >
-                <div className="absolute top-0 left-0 w-1 h-full bg-moss/10 group-hover:bg-moss/30 transition-colors" />
-                <div className="text-[10px] uppercase tracking-[0.3em] font-bold text-moss/40 mb-4">
-                  {lang === 'cn' ? '文章摘要' : 'Abstract'}
+                <div className="abstract-drop-cap">“</div>
+                <div className="abstract-content">
+                  <div className="text-[10px] uppercase tracking-[0.3em] font-bold text-moss/40 mb-4">
+                    {lang === 'cn' ? '文章摘要' : 'Abstract'}
+                  </div>
+                  <p className="text-xl md:text-2xl font-serif italic leading-relaxed text-ink/70">
+                    {summary}
+                  </p>
                 </div>
-                <p className="text-xl md:text-2xl font-serif italic leading-relaxed text-ink/70">
-                  {summary}
-                </p>
               </motion.div>
             )}
 
@@ -197,6 +208,21 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
               <Markdown 
                 remarkPlugins={[remarkGfm]}
                 components={{
+                  h2({ children, node }: any) {
+                    const icons = [Home, Zap, Target, Compass];
+                    // Find index of this h2 among all h2s in the content
+                    const h2Index = (node?.position?.start?.line || 0) % icons.length;
+                    const Icon = icons[h2Index];
+                    
+                    return (
+                      <h2 className="flex items-center gap-4">
+                        <span className="w-10 h-10 bg-moss/5 border border-moss/10 rounded-sm flex items-center justify-center text-moss">
+                          <Icon className="w-5 h-5" />
+                        </span>
+                        {children}
+                      </h2>
+                    );
+                  },
                   code({ node, inline, className, children, ...props }: any) {
                     const match = /language-(\w+)/.exec(className || '');
                     if (!inline && match && match[1] === 'mermaid') {
@@ -212,6 +238,15 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
               >
                 {finalContent}
               </Markdown>
+
+              {frontmatter.golden_sentence && (
+                <div className="golden-sentence">
+                  <div className="golden-sentence-icon">核</div>
+                  <p className="text-2xl font-serif text-moss leading-relaxed">
+                    {frontmatter.golden_sentence}
+                  </p>
+                </div>
+              )}
             </div>
           </motion.div>
 
