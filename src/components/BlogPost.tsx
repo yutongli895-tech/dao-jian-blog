@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ArrowLeft, Calendar, Tag, Share2 } from 'lucide-react';
@@ -7,6 +7,32 @@ import { Navbar } from './Navbar';
 import { Footer } from './Footer';
 import { translations } from '../lib/translations';
 import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import matter from 'gray-matter';
+import mermaid from 'mermaid';
+
+// Mermaid component to render diagrams
+const Mermaid = ({ chart }: { chart: string }) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (ref.current) {
+      mermaid.initialize({ 
+        startOnLoad: true, 
+        theme: 'neutral',
+        securityLevel: 'loose',
+        fontFamily: 'Inter'
+      });
+      mermaid.contentLoaded();
+    }
+  }, [chart]);
+
+  return (
+    <div className="mermaid flex justify-center my-12 bg-white/50 dark:bg-white/5 p-8 rounded-sm overflow-x-auto" ref={ref}>
+      {chart}
+    </div>
+  );
+};
 
 export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onSubscribe }: { 
   theme: 'light' | 'dark'; 
@@ -55,11 +81,15 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
   if (!post) return null;
 
   const title = lang === 'cn' ? post.title_cn : post.title_en;
-  const content = lang === 'cn' ? post.content_cn : post.content_en;
+  const rawContent = lang === 'cn' ? post.content_cn : post.content_en;
   const category = lang === 'cn' ? post.category_cn : post.category_en;
 
+  // Strip frontmatter and <!--more-->
+  const { content: cleanContent } = matter(rawContent || '');
+  const finalContent = cleanContent.replace(/<!--more-->/g, '');
+
   // Calculate reading time
-  const wordCount = content?.length || 0;
+  const wordCount = finalContent?.length || 0;
   const readingTime = Math.ceil(wordCount / (lang === 'cn' ? 300 : 200));
 
   return (
@@ -142,7 +172,24 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
             className="prose prose-ink dark:prose-invert max-w-none"
           >
             <div className="markdown-body drop-cap">
-              <Markdown>{content}</Markdown>
+              <Markdown 
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  code({ node, inline, className, children, ...props }: any) {
+                    const match = /language-(\w+)/.exec(className || '');
+                    if (!inline && match && match[1] === 'mermaid') {
+                      return <Mermaid chart={String(children).replace(/\n$/, '')} />;
+                    }
+                    return (
+                      <code className={className} {...props}>
+                        {children}
+                      </code>
+                    );
+                  }
+                }}
+              >
+                {finalContent}
+              </Markdown>
             </div>
           </motion.div>
 

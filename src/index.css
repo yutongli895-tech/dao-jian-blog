@@ -88,15 +88,16 @@
 }
 
 .prose table, .markdown-body table {
-  @apply w-full my-12 border-collapse text-left overflow-hidden rounded-sm;
+  @apply w-full my-12 border-collapse text-left overflow-hidden rounded-sm shadow-sm;
+  background: var(--mist);
 }
 
 .prose th, .markdown-body th {
-  @apply py-4 px-6 bg-mist/50 font-serif font-medium border-b border-moss/20 text-lg;
+  @apply py-5 px-6 bg-moss/10 font-serif font-semibold border-b border-moss/20 text-lg text-moss;
 }
 
 .prose td, .markdown-body td {
-  @apply py-4 px-6 border-b border-moss/10 text-lg opacity-90;
+  @apply py-4 px-6 border-b border-moss/10 text-lg opacity-90 font-serif;
 }
 
 .prose img, .markdown-body img {
@@ -134,11 +135,16 @@
 }
 
 .dark .prose th, .dark .markdown-body th {
-  @apply bg-white/5 border-white/10;
+  @apply bg-white/10 border-white/20 text-accent;
 }
 
 .dark .prose td, .dark .markdown-body td {
-  @apply border-white/5;
+  @apply border-white/10;
+}
+
+/* Mermaid Styling */
+.mermaid {
+  @apply shadow-inner border border-moss/10;
 }
 
 .ink-gradient {
