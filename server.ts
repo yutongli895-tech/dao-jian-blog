@@ -49,6 +49,30 @@ if (!admin) {
   db.prepare('UPDATE users SET password = ? WHERE username = ?').run(hash, 'admin');
 }
 
+// Database helper to handle both local SQLite and Cloudflare D1
+const queryDb = async (req: any, sql: string, params: any[] = [], type: 'all' | 'get' | 'run' = 'get') => {
+  // Check if we are running on Cloudflare (D1 is usually on req.env.DB or process.env.DB)
+  // Note: In Cloudflare Pages Functions, the env is often passed in the request context
+  const cloudflareDb = (req as any).env?.DB || (process as any).env?.DB;
+
+  if (cloudflareDb) {
+    // Cloudflare D1 Logic
+    const stmt = cloudflareDb.prepare(sql).bind(...params);
+    if (type === 'all') {
+      const { results } = await stmt.all();
+      return results;
+    }
+    if (type === 'get') return await stmt.first();
+    if (type === 'run') return await stmt.run();
+  } else {
+    // Local SQLite Logic (better-sqlite3)
+    const stmt = db.prepare(sql);
+    if (type === 'all') return stmt.all(...params);
+    if (type === 'get') return stmt.get(...params);
+    if (type === 'run') return stmt.run(...params);
+  }
+};
+
 async function startServer() {
   const app = express();
   app.use(express.json());
@@ -66,22 +90,29 @@ async function startServer() {
     }
   };
 
-// Database Adapter to support both local SQLite and Cloudflare D1
-const getDb = (req: any) => {
-  // If running on Cloudflare, the DB binding is usually in req.env or similar
-  // For standard Express on Node, we use the local better-sqlite3 instance
-  return db;
-};
-
-async function startServer() {
-  const app = express();
-  app.use(express.json());
-
   // API Routes
+  app.post('/api/login', async (req, res) => {
+    const { username, password } = req.body;
+    try {
+      const user: any = await queryDb(req, 'SELECT * FROM users WHERE username = ?', [username], 'get');
+      if (user && bcrypt.compareSync(password, user.password)) {
+        const token = await new jose.SignJWT({ id: user.id, username: user.username })
+          .setProtectedHeader({ alg: 'HS256' })
+          .setIssuedAt()
+          .setExpirationTime('24h')
+          .sign(JWT_SECRET);
+        res.json({ token });
+      } else {
+        res.status(401).json({ error: 'Invalid credentials' });
+      }
+    } catch (err) {
+      res.status(500).json({ error: 'Login error' });
+    }
+  });
+
   app.get('/api/posts', async (req, res) => {
     try {
-      // Local better-sqlite3 is synchronous
-      const posts = db.prepare('SELECT * FROM posts ORDER BY date DESC').all();
+      const posts = await queryDb(req, 'SELECT * FROM posts ORDER BY date DESC', [], 'all');
       res.json(posts);
     } catch (err) {
       res.status(500).json({ error: 'Database error' });
@@ -90,7 +121,7 @@ async function startServer() {
 
   app.get('/api/posts/:id', async (req, res) => {
     try {
-      const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(req.params.id);
+      const post = await queryDb(req, 'SELECT * FROM posts WHERE id = ?', [req.params.id], 'get');
       if (post) {
         res.json(post);
       } else {
@@ -105,11 +136,11 @@ async function startServer() {
     const { title_cn, title_en, excerpt_cn, excerpt_en, content_cn, content_en, category_cn, category_en, image } = req.body;
     const date = new Date().toISOString().split('T')[0].replace(/-/g, '.');
     try {
-      const result = db.prepare(`
+      const result: any = await queryDb(req, `
         INSERT INTO posts (title_cn, title_en, excerpt_cn, excerpt_en, content_cn, content_en, category_cn, category_en, image, date)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(title_cn, title_en, excerpt_cn, excerpt_en, content_cn, content_en, category_cn, category_en, image, date);
-      res.json({ id: result.lastInsertRowid });
+      `, [title_cn, title_en, excerpt_cn, excerpt_en, content_cn, content_en, category_cn, category_en, image, date], 'run');
+      res.json({ id: result?.lastInsertRowid || result?.meta?.last_row_id });
     } catch (err) {
       res.status(500).json({ error: 'Failed to create post' });
     }
@@ -118,10 +149,10 @@ async function startServer() {
   app.put('/api/posts/:id', authenticate, async (req, res) => {
     const { title_cn, title_en, excerpt_cn, excerpt_en, content_cn, content_en, category_cn, category_en, image, published } = req.body;
     try {
-      db.prepare(`
+      await queryDb(req, `
         UPDATE posts SET title_cn=?, title_en=?, excerpt_cn=?, excerpt_en=?, content_cn=?, content_en=?, category_cn=?, category_en=?, image=?, published=?
         WHERE id = ?
-      `).run(title_cn, title_en, excerpt_cn, excerpt_en, content_cn, content_en, category_cn, category_en, image, published, req.params.id);
+      `, [title_cn, title_en, excerpt_cn, excerpt_en, content_cn, content_en, category_cn, category_en, image, published, req.params.id], 'run');
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: 'Failed to update post' });
@@ -130,7 +161,7 @@ async function startServer() {
 
   app.delete('/api/posts/:id', authenticate, async (req, res) => {
     try {
-      db.prepare('DELETE FROM posts WHERE id = ?').run(req.params.id);
+      await queryDb(req, 'DELETE FROM posts WHERE id = ?', [req.params.id], 'run');
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: 'Failed to delete post' });

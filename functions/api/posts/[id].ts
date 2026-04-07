@@ -33,6 +33,20 @@ export const onRequestPut: PagesFunction<{ DB: D1Database; JWT_SECRET?: string }
   });
 };
 
+export const onRequestGet: PagesFunction<{ DB: D1Database }> = async ({ env, params }) => {
+  const post = await env.DB.prepare('SELECT * FROM posts WHERE id = ?').bind(params.id).first();
+  if (post) {
+    return new Response(JSON.stringify(post), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } else {
+    return new Response(JSON.stringify({ error: 'Post not found' }), {
+      status: 404,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+};
+
 export const onRequestDelete: PagesFunction<{ DB: D1Database; JWT_SECRET?: string }> = async ({ request, env, params }) => {
   const user = await authenticate(request, env);
   if (!user) {
