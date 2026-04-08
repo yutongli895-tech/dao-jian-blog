@@ -6,7 +6,7 @@ import { Post } from './BlogCard';
 import { Navbar } from './Navbar';
 import { Footer } from './Footer';
 import { translations } from '../lib/translations';
-import Markdown from 'react-markdown';
+import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import matter from 'gray-matter';
 import mermaid from 'mermaid';
@@ -161,14 +161,16 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
   // Strip frontmatter and <!--more-->
   const { data: frontmatter, content: cleanContent } = matter(rawContent || '');
   const finalContent = cleanContent.replace(/<!--more-->/g, '').trim();
-  const summary = lang === 'cn' ? frontmatter.summary_cn || frontmatter.summary : frontmatter.summary_en || frontmatter.summary;
+  const summary = lang === 'cn' 
+    ? (frontmatter.summary_cn || frontmatter.summary || post.excerpt_cn) 
+    : (frontmatter.summary_en || frontmatter.summary || post.excerpt_en);
 
   // Calculate reading time
   const wordCount = finalContent?.length || 0;
   const readingTime = Math.ceil(wordCount / (lang === 'cn' ? 300 : 200));
 
   // Pre-process content to ensure Mermaid blocks and Tables are correctly identified
-  const processedContent = finalContent
+  const processedContent = (finalContent || '')
     // Normalize line endings
     .replace(/\r\n/g, '\n')
     // Ensure Mermaid blocks have blank lines before and after, and remove indentation
@@ -181,6 +183,12 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
     .replace(/\|\n([^\n|])/g, '|\n\n$1')
     // Ensure table rows are not separated by extra spaces
     .replace(/\|\s*\n\s*\|/g, '|\n|');
+
+  const processedSummary = (String(summary || ''))
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]*```mermaid\s*([\s\S]*?)```/g, (match, p1) => {
+      return `\n\n\`\`\`mermaid\n${p1.trim()}\n\`\`\`\n\n`;
+    });
 
   return (
     <div className="min-h-screen bg-paper transition-colors duration-500 relative overflow-hidden">
@@ -264,9 +272,26 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
                 <div className="abstract-content-wrapper flex-col sm:flex-row gap-6 sm:gap-10">
                   <div className="abstract-drop-cap text-7xl sm:text-9xl">“道”</div>
                   <div className="abstract-text text-lg sm:text-2xl prose prose-ink dark:prose-invert max-w-none">
-                    <Markdown remarkPlugins={[remarkGfm]}>
-                      {summary}
-                    </Markdown>
+                    <ReactMarkdown 
+                      key={`summary-${processedSummary.length}`}
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        code({ node, inline, className, children, ...props }: any) {
+                          const content = String(children || '').trim();
+                          const isMermaid = className?.includes('language-mermaid') || className?.includes('mermaid');
+                          if (!inline && isMermaid) {
+                            const chart = content.replace(/^mermaid\n?/, '').replace(/^```mermaid\n?/, '').replace(/\n?```$/, '').trim();
+                            return <Mermaid key={chart.substring(0, 50)} chart={chart} theme={theme} />;
+                          }
+                          if (!inline && !className && (content.startsWith('graph ') || content.startsWith('graph TD') || content.startsWith('graph LR'))) {
+                            return <Mermaid key={content.substring(0, 50)} chart={content} theme={theme} />;
+                          }
+                          return <code className={className} {...props}>{children}</code>;
+                        }
+                      }}
+                    >
+                      {String(processedSummary || '').trim()}
+                    </ReactMarkdown>
                   </div>
                 </div>
               </motion.div>
@@ -295,7 +320,8 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
             className="prose prose-ink dark:prose-invert max-w-none relative"
           >
             <div className="markdown-body drop-cap selection:bg-moss/20">
-              <Markdown 
+              <ReactMarkdown 
+                key={`content-${processedContent.length}`}
                 remarkPlugins={[remarkGfm]}
                 components={{
                   h2({ children, node }: any) {
@@ -313,7 +339,7 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
                     );
                   },
                   code({ node, inline, className, children, ...props }: any) {
-                    const content = String(children).trim();
+                    const content = String(children || '').trim();
                     const isMermaid = className?.includes('language-mermaid') || className?.includes('mermaid');
                     
                     if (!inline && isMermaid) {
@@ -348,8 +374,8 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
                   }
                 }}
               >
-                {processedContent}
-              </Markdown>
+                {String(processedContent || '').trim()}
+              </ReactMarkdown>
 
               {frontmatter.golden_sentence && (
                 <div className="golden-sentence">
