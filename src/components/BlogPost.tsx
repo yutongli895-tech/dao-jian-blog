@@ -37,7 +37,7 @@ const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) =
           startOnLoad: false, 
           theme: isDark ? 'dark' : 'base',
           securityLevel: 'loose',
-          fontFamily: 'Inter, system-ui, sans-serif',
+          fontFamily: '"Noto Serif SC", "Inter", serif',
           // Suppress the default error output to avoid "Syntax error in text" spam
           suppressError: true,
           themeVariables: {
@@ -47,14 +47,19 @@ const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) =
             lineColor: '#00896C',
             secondaryColor: isDark ? '#1E1E1E' : '#F2F0E9',
             tertiaryColor: isDark ? '#121212' : '#FFFFFF',
-            fontSize: '14px',
+            fontSize: '16px',
             mainBkg: '#00896C',
             nodeBorder: '#00896C',
             clusterBkg: isDark ? '#1E1E1E' : '#F2F0E9',
             titleColor: '#00896C',
             edgeLabelBackground: isDark ? '#121212' : '#FDFCF8',
             nodeRadius: '2px',
-            fontFamily: 'Inter, system-ui, sans-serif',
+            fontFamily: '"Noto Serif SC", "Inter", serif',
+          },
+          flowchart: {
+            htmlLabels: true,
+            useMaxWidth: true,
+            curve: 'basis' // More organic, "Daoist" style curves
           }
         });
 
@@ -92,7 +97,8 @@ const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) =
   return (
     <div 
       ref={containerRef}
-      className="mermaid-container flex justify-center my-16 overflow-x-auto w-full bg-mist p-8 rounded-sm border border-moss/10 shadow-sm transition-colors duration-500" 
+      className="mermaid-container flex justify-center my-16 overflow-x-auto w-full bg-mist p-8 rounded-sm border border-moss/10 shadow-sm transition-colors duration-500 font-serif" 
+      style={{ fontSize: '16px' }}
       dangerouslySetInnerHTML={{ __html: svg || '<div class="animate-pulse h-40 bg-moss/5 w-full rounded-sm flex items-center justify-center text-moss/20 text-xs uppercase tracking-widest">Rendering Diagram...</div>' }}
     />
   );
