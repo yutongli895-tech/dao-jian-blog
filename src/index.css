@@ -165,22 +165,37 @@
 }
 
 /* Mermaid HTML Label Fixes */
-.mermaid-container .label {
-  color: inherit !important;
-  line-height: normal !important;
-}
-
+.mermaid-container .label,
 .mermaid-container .node label,
 .mermaid-container .edgeLabel {
+  color: inherit !important;
+  line-height: 1.2 !important;
   text-align: center !important;
   text-justify: auto !important;
-  font-family: inherit !important;
+  font-family: "Inter", sans-serif !important;
+  letter-spacing: normal !important;
+}
+
+.mermaid-container .node .label {
+  color: white !important;
 }
 
 .mermaid-container .edgeLabel {
-  background-color: transparent !important;
-  padding: 2px 4px;
-  border-radius: 2px;
+  background-color: var(--mist) !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  font-size: 13px !important;
+  color: var(--ink) !important;
+  opacity: 0.9;
+}
+
+.dark .mermaid-container .edgeLabel {
+  background-color: #2D2D2D !important;
+  color: #E5E1DA !important;
+}
+
+.mermaid-container svg {
+  max-width: 100% !important;
 }
 
 /* Abstract Section Styling */

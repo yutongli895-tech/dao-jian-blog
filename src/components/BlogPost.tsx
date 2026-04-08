@@ -37,7 +37,7 @@ const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) =
           startOnLoad: false, 
           theme: isDark ? 'dark' : 'base',
           securityLevel: 'loose',
-          fontFamily: '"Inter", "Noto Serif SC", sans-serif',
+          fontFamily: 'Inter, system-ui, sans-serif',
           themeVariables: {
             primaryColor: '#00896C',
             primaryTextColor: '#FFFFFF',
@@ -45,22 +45,22 @@ const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) =
             lineColor: '#00896C',
             secondaryColor: isDark ? '#1E1E1E' : '#F2F0E9',
             tertiaryColor: isDark ? '#121212' : '#FFFFFF',
-            fontSize: '16px',
+            fontSize: '15px',
             mainBkg: '#00896C',
             nodeBorder: '#00896C',
             clusterBkg: isDark ? '#1E1E1E' : '#F2F0E9',
             titleColor: '#00896C',
             edgeLabelBackground: isDark ? '#2D2D2D' : '#FDFCF8',
-            nodeRadius: '4px',
-            fontFamily: '"Inter", "Noto Serif SC", sans-serif',
-            // Fix for edge labels and text contrast
+            nodeRadius: '2px',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            // Explicitly set label colors to avoid theme conflicts
             labelTextColor: isDark ? '#E5E1DA' : '#1A1A1A',
-            tertiaryTextColor: isDark ? '#E5E1DA' : '#1A1A1A',
           },
           flowchart: {
-            htmlLabels: true, // Re-enable for better CJK support
-            useMaxWidth: true,
-            curve: 'basis'
+            htmlLabels: true,
+            useMaxWidth: false, // Disable auto-scaling to keep text crisp
+            curve: 'basis',
+            padding: 20
           }
         });
 
