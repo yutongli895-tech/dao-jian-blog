@@ -12,7 +12,7 @@ import rehypeRaw from 'rehype-raw';
 import matter from 'gray-matter';
 import mermaid from 'mermaid';
 
-// Mermaid component to render diagrams
+// Mermaid component to render diagrams using a stable CDN approach to avoid asset loading issues
 const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) => {
   const [svg, setSvg] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
@@ -32,9 +32,12 @@ const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) =
       
       try {
         const id = `mermaid-${Math.random().toString(36).substring(2, 11)}`;
-        const isDark = theme === 'dark';
         
-        // Ensure mermaid is initialized with the correct theme
+        // Use dynamic import from CDN to ensure all chunks (like dagre) are loaded from the same CDN
+        // This fixes the "Failed to fetch dynamically imported module" error in production
+        const mermaidModule = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.esm.min.mjs');
+        const mermaid = mermaidModule.default;
+
         mermaid.initialize({ 
           startOnLoad: false, 
           theme: 'base',
@@ -63,8 +66,6 @@ const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) =
           }
         });
 
-        // Validate if it's a valid mermaid chart before rendering
-        // Mermaid.parse is async in newer versions
         try {
           await mermaid.parse(chart);
         } catch (e) {
@@ -79,7 +80,7 @@ const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) =
         }
       } catch (err) {
         console.error('Mermaid render error:', err);
-        if (isMounted.current) setError('Render Error');
+        if (isMounted.current) setError('Render Error: ' + (err instanceof Error ? err.message : 'Unknown error'));
       }
     };
     renderChart();
@@ -175,16 +176,18 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
   const wordCount = finalContent?.length || 0;
   const readingTime = Math.ceil(wordCount / (lang === 'cn' ? 300 : 200));
 
-  // Pre-process content to ensure Mermaid blocks and Tables are correctly identified
+  // Pre-process content to ensure Mermaid blocks, Tables, and HTML tags are correctly identified
   const processedContent = (finalContent || '')
     // Normalize line endings
     .replace(/\r\n/g, '\n')
     // Ensure Mermaid blocks have blank lines before and after, and remove indentation
     .replace(/[ \t]*```mermaid\s*([\s\S]*?)```/g, (match, p1) => {
-      // Clean up the mermaid code - remove any leading indentation from each line
       const cleanMermaid = p1.split('\n').map(line => line.trim()).join('\n');
       return `\n\n\`\`\`mermaid\n${cleanMermaid}\n\`\`\`\n\n`;
     })
+    // Ensure HTML blocks have blank lines before and after to help rehype-raw
+    .replace(/(<div class="abstract-container">[\s\S]*?<\/div>)/g, '\n\n$1\n\n')
+    .replace(/(<div class="golden-sentence">[\s\S]*?<\/div>)/g, '\n\n$1\n\n')
     // Ensure tables have a blank line before them
     .replace(/([^\n])\n[ \t]*\|/g, '$1\n\n|')
     // Ensure tables have a blank line after them

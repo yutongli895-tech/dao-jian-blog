@@ -31,7 +31,7 @@ export const onRequestPost: PagesFunction<{ DB: D1Database; GEMINI_API_KEY: stri
       Requirements for the "content" field:
       1. Use a sophisticated, international editorial style (Grand Editorial).
       2. The content MUST be in Markdown format but MUST include specific HTML structures for layout:
-         - Start with an abstract block:
+         - Start with an abstract block (MUST be plain HTML, NOT wrapped in markdown code blocks):
            <div class="abstract-container">
              <div class="abstract-title">导读 / ABSTRACT</div>
              <div class="abstract-content-wrapper">
@@ -41,7 +41,7 @@ export const onRequestPost: PagesFunction<{ DB: D1Database; GEMINI_API_KEY: stri
            </div>
          - Use level 2 headers (##) for sections.
          - Include exactly one Mermaid flowchart (graph TD or graph LR) explaining the logic. Keep node text concise (max 10 chars).
-         - End with a golden sentence block:
+         - End with a golden sentence block (MUST be plain HTML, NOT wrapped in markdown code blocks):
            <div class="golden-sentence">
              <div class="golden-sentence-icon">道</div>
              [A final poetic conclusion sentence]
