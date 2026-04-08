@@ -120,12 +120,28 @@
   @apply my-16 border-t border-moss/20 w-1/3 mx-auto;
 }
 
-/* Drop Cap Effect */
-.drop-cap p:first-of-type::first-letter {
+/* Drop Cap Effect - Only apply to top-level paragraphs in the article body */
+.drop-cap > p:first-of-type::first-letter {
   @apply font-serif text-6xl md:text-7xl float-left mr-4 mt-2 leading-none font-medium text-moss;
 }
 
-.dark .drop-cap p:first-of-type::first-letter {
+/* Explicitly disable drop-cap for any nested elements like Mermaid labels */
+.mermaid-container p::first-letter,
+.mermaid p::first-letter,
+.mermaid-container div::first-letter,
+.mermaid div::first-letter,
+.mermaid-container span::first-letter,
+.mermaid span::first-letter {
+  font-size: inherit !important;
+  float: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  color: inherit !important;
+  font-family: inherit !important;
+  font-weight: inherit !important;
+}
+
+.dark .drop-cap > p:first-of-type::first-letter {
   @apply text-accent;
 }
 
