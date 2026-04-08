@@ -194,6 +194,9 @@
   padding: 8px 16px !important;
   font-weight: 500 !important;
   white-space: nowrap !important;
+  display: block !important;
+  width: max-content !important;
+  min-width: 60px !important;
 }
 
 .mermaid-container .edgeLabel {
@@ -203,6 +206,8 @@
   font-size: 13px !important;
   color: var(--accent-green) !important;
   font-weight: 600 !important;
+  white-space: nowrap !important;
+  display: inline-block !important;
 }
 
 .dark .mermaid-container .edgeLabel {
@@ -214,6 +219,7 @@
   max-width: 100% !important;
   height: auto !important;
   width: auto !important;
+  overflow: visible !important;
 }
 
 /* Abstract Section Styling */

@@ -26,15 +26,16 @@ const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) =
     };
   }, []);
 
+  const renderedChartRef = useRef<string>('');
+
   useEffect(() => {
     const renderChart = async () => {
       if (!chart || chart.trim().length < 5) return;
+      if (renderedChartRef.current === chart + theme) return; // Prevent redundant renders
       
       try {
         const id = `mermaid-${Math.random().toString(36).substring(2, 11)}`;
         
-        // Use dynamic import from CDN to ensure all chunks (like dagre) are loaded from the same CDN
-        // This fixes the "Failed to fetch dynamically imported module" error in production
         // @ts-ignore - Dynamic import from CDN
         const mermaidModule = await import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.esm.min.mjs');
         const mermaid = mermaidModule.default;
@@ -62,7 +63,7 @@ const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) =
           },
           flowchart: {
             htmlLabels: true,
-            useMaxWidth: false, // Disable automatic scaling to prevent width calculation errors
+            useMaxWidth: false,
             curve: 'basis',
             padding: 40,
             nodeSpacing: 60,
@@ -70,21 +71,15 @@ const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) =
           }
         });
 
-        try {
-          await mermaid.parse(chart);
-        } catch (e) {
-          if (isMounted.current) setError('Invalid Mermaid Syntax');
-          return;
-        }
-
         const { svg: renderedSvg } = await mermaid.render(id, chart);
         if (isMounted.current) {
           setSvg(renderedSvg);
           setError(null);
+          renderedChartRef.current = chart + theme;
         }
       } catch (err) {
         console.error('Mermaid render error:', err);
-        if (isMounted.current) setError('Render Error: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        if (isMounted.current) setError('Render Error');
       }
     };
     renderChart();
