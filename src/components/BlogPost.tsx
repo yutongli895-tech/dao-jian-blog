@@ -61,10 +61,12 @@ const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) =
             fontFamily: 'system-ui, -apple-system, sans-serif',
           },
           flowchart: {
-            htmlLabels: true, // Revert to HTML labels for better Chinese support
-            useMaxWidth: true,
+            htmlLabels: true,
+            useMaxWidth: false, // Disable automatic scaling to prevent width calculation errors
             curve: 'basis',
-            padding: 40
+            padding: 40,
+            nodeSpacing: 60,
+            rankSpacing: 60
           }
         });
 
@@ -100,8 +102,8 @@ const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) =
   return (
     <div 
       ref={containerRef}
-      className="mermaid-container flex justify-center my-16 overflow-x-auto w-full bg-mist p-8 rounded-sm border border-moss/10 shadow-sm transition-colors duration-500" 
-      dangerouslySetInnerHTML={{ __html: svg || '<div class="animate-pulse h-40 bg-moss/5 w-full rounded-sm flex items-center justify-center text-moss/20 text-xs uppercase tracking-widest">Rendering Diagram...</div>' }}
+      className="mermaid-container flex justify-center my-16 overflow-x-auto w-full bg-mist p-8 rounded-sm border border-moss/10 shadow-sm transition-colors duration-500 min-h-[300px]" 
+      dangerouslySetInnerHTML={{ __html: svg || '<div class="h-40 bg-moss/5 w-full rounded-sm flex items-center justify-center text-moss/20 text-xs uppercase tracking-widest">Preparing Diagram...</div>' }}
     />
   );
 };
