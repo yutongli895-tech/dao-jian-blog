@@ -50,14 +50,14 @@ const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) =
             clusterBkg: '#F2F0E9',
             titleColor: '#00896C',
             edgeLabelBackground: '#FFFFFF',
-            nodeRadius: '2px',
-            fontFamily: 'system-ui, -apple-system, sans-serif',
+            nodeRadius: '4px',
+            fontFamily: 'Inter, system-ui, sans-serif',
           },
           flowchart: {
             htmlLabels: true,
-            useMaxWidth: true,
+            useMaxWidth: false,
             curve: 'basis',
-            padding: 15
+            padding: 20
           }
         });
 
