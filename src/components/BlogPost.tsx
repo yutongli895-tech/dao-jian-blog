@@ -8,6 +8,7 @@ import { Footer } from './Footer';
 import { translations } from '../lib/translations';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 import matter from 'gray-matter';
 import mermaid from 'mermaid';
 
@@ -30,13 +31,15 @@ const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) =
       if (!chart || chart.trim().length < 5) return;
       
       try {
-        const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
+        const id = `mermaid-${Math.random().toString(36).substring(2, 11)}`;
         const isDark = theme === 'dark';
         
+        // Ensure mermaid is initialized with the correct theme
         mermaid.initialize({ 
           startOnLoad: false, 
           theme: 'base',
           securityLevel: 'loose',
+          fontFamily: 'Inter, "Noto Serif SC", sans-serif',
           themeVariables: {
             primaryColor: '#00896C',
             primaryTextColor: '#FFFFFF',
@@ -51,7 +54,6 @@ const Mermaid = ({ chart, theme }: { chart: string; theme: 'light' | 'dark' }) =
             titleColor: '#00896C',
             edgeLabelBackground: '#FFFFFF',
             nodeRadius: '4px',
-            fontFamily: '"Inter", "Noto Serif SC", system-ui, sans-serif',
           },
           flowchart: {
             htmlLabels: true,
@@ -179,7 +181,9 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
     .replace(/\r\n/g, '\n')
     // Ensure Mermaid blocks have blank lines before and after, and remove indentation
     .replace(/[ \t]*```mermaid\s*([\s\S]*?)```/g, (match, p1) => {
-      return `\n\n\`\`\`mermaid\n${p1.trim()}\n\`\`\`\n\n`;
+      // Clean up the mermaid code - remove any leading indentation from each line
+      const cleanMermaid = p1.split('\n').map(line => line.trim()).join('\n');
+      return `\n\n\`\`\`mermaid\n${cleanMermaid}\n\`\`\`\n\n`;
     })
     // Ensure tables have a blank line before them
     .replace(/([^\n])\n[ \t]*\|/g, '$1\n\n|')
@@ -188,11 +192,18 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
     // Ensure table rows are not separated by extra spaces
     .replace(/\|\s*\n\s*\|/g, '|\n|');
 
-  const processedSummary = (String(summary || ''))
+  let processedSummary = (String(summary || ''))
     .replace(/\r\n/g, '\n')
     .replace(/[ \t]*```mermaid\s*([\s\S]*?)```/g, (match, p1) => {
-      return `\n\n\`\`\`mermaid\n${p1.trim()}\n\`\`\`\n\n`;
+      const cleanMermaid = p1.split('\n').map(line => line.trim()).join('\n');
+      return `\n\n\`\`\`mermaid\n${cleanMermaid}\n\`\`\`\n\n`;
     });
+
+  // If the summary starts with the title's first character, strip it to avoid redundancy with the big "道" icon
+  const firstChar = title?.[0];
+  if (firstChar && processedSummary.startsWith(firstChar)) {
+    processedSummary = processedSummary.substring(1).trim();
+  }
 
   return (
     <div className="min-h-screen bg-paper transition-colors duration-500 relative overflow-hidden">
@@ -277,11 +288,12 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
                   {lang === 'cn' ? '文章摘要' : 'Abstract'}
                 </h2>
                 <div className="flex flex-col md:flex-row gap-8 items-start">
-                  <div className="text-8xl font-serif text-moss/80 leading-none select-none pt-2">“道”</div>
+                  <div className="text-8xl font-serif text-moss/80 leading-none select-none pt-2">“{firstChar || '道'}”</div>
                   <div className="flex-1 text-xl md:text-2xl font-serif italic leading-[1.8] text-ink/80">
                     <ReactMarkdown 
                       key={`summary-${processedSummary.length}`}
                       remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[rehypeRaw]}
                       components={{
                         code({ node, inline, className, children, ...props }: any) {
                           const content = String(children || '').trim();
@@ -327,6 +339,7 @@ export const BlogPost = ({ theme, toggleTheme, lang, toggleLang, onNavClick, onS
               <ReactMarkdown 
                 key={`content-${processedContent.length}`}
                 remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw]}
                 components={{
                   h2({ children, node }: any) {
                     const icons = [Globe, Landmark, Scale, User];
