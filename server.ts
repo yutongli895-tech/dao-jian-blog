@@ -212,6 +212,50 @@ async function startServer() {
     }
   });
 
+  app.post('/api/generate', authenticate, async (req, res) => {
+    try {
+      const { title } = req.body;
+      const apiKeyString = process.env.GEMINI_API_KEY;
+      if (!apiKeyString) return res.status(500).json({ error: 'API Key not configured' });
+
+      const apiKeys = apiKeyString.split(',').map(k => k.trim()).filter(Boolean);
+      const apiKey = apiKeys[Math.floor(Math.random() * apiKeys.length)];
+
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `You are a "Daoist Philosopher & Deep Insight Analyst". 
+        Your task is to write a deep, insightful blog post in Chinese based on the title: "${title}".
+        
+        Requirements:
+        1. Use a sophisticated, international editorial style (Grand Editorial).
+        2. The content MUST be in Markdown format.
+        3. Include at least 3-4 sections, each starting with a level 2 header (##).
+        4. Include exactly one Mermaid flowchart (graph TD or graph LR) that explains the core logic of the article.
+        5. The summary (excerpt) should be profound and poetic.
+        6. Suggest a suitable category (e.g., 哲学, 科技, 商业, 认知).
+        
+        Return the result in JSON format with keys: title, excerpt, content, category.`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              excerpt: { type: Type.STRING },
+              content: { type: Type.STRING },
+              category: { type: Type.STRING }
+            },
+            required: ["title", "excerpt", "content", "category"]
+          }
+        }
+      });
+      res.json(JSON.parse(response.text));
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Vite Integration
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

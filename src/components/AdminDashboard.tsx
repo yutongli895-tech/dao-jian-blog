@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Plus, Edit, Trash, LogOut, Save, X, Languages, Loader2 } from 'lucide-react';
+import { Plus, Edit, Trash, LogOut, Save, X, Languages, Loader2, Sparkles } from 'lucide-react';
 
 interface Post {
   id?: number;
@@ -22,6 +22,42 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const generateWithAI = async () => {
+    if (!editingPost?.title_cn) {
+      alert("请先输入文章标题。");
+      return;
+    }
+    
+    setIsGenerating(true);
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ title: editingPost.title_cn })
+      });
+
+      if (!res.ok) throw new Error('Generation failed');
+      
+      const result = await res.json() as { title: string; excerpt: string; content: string; category: string };
+      setEditingPost({
+        ...editingPost,
+        title_cn: result.title,
+        excerpt_cn: result.excerpt,
+        content_cn: result.content,
+        category_cn: result.category
+      });
+    } catch (error) {
+      console.error("Generation failed:", error);
+      alert("生成失败，请检查网络或重试。");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const translateWithAI = async () => {
     if (!editingPost?.title_cn && !editingPost?.content_cn) return;
@@ -171,6 +207,15 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
                 >
                   {isTranslating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Languages className="w-3 h-3" />}
                   {isTranslating ? '翻译中...' : '一键翻译至英文'}
+                </button>
+                <button 
+                  type="button"
+                  onClick={generateWithAI}
+                  disabled={isGenerating}
+                  className="flex items-center justify-center gap-2 px-4 py-1 border border-ink text-ink text-[10px] uppercase tracking-widest hover:bg-ink hover:text-paper transition-all disabled:opacity-50 w-full sm:w-auto"
+                >
+                  {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                  {isGenerating ? '生成中...' : '一键生成内容'}
                 </button>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="absolute top-6 right-6 sm:relative sm:top-0 sm:right-0"><X className="w-6 h-6" /></button>
