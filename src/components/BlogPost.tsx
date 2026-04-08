@@ -61,7 +61,7 @@ const Mermaid = React.memo(({ chart, theme }: { chart: string; theme: 'light' | 
             lineColor: '#00896C',
             secondaryColor: '#F2F0E9',
             tertiaryColor: '#FFFFFF',
-            fontSize: '16px',
+            fontSize: '24px', // Trick Mermaid into calculating wider boxes
             mainBkg: '#00896C',
             nodeBorder: '#00896C',
             clusterBkg: '#F2F0E9',
@@ -74,16 +74,17 @@ const Mermaid = React.memo(({ chart, theme }: { chart: string; theme: 'light' | 
             htmlLabels: true,
             useMaxWidth: false,
             curve: 'basis',
-            padding: 50,
+            padding: 60,
             nodeSpacing: 60,
             rankSpacing: 60
           }
         });
 
-        // HACK: Add spaces around Chinese labels to force Mermaid to calculate a wider box
-        const sanitizedChart = chart.replace(/\[(.*?)\]/g, (match, p1) => `[ ${p1.trim()} ]`)
-                                   .replace(/\{(.*?)\}/g, (match, p1) => `{ ${p1.trim()} }`)
-                                   .replace(/\((.*?)\)/g, (match, p1) => `( ${p1.trim()} )`);
+        // HACK: Add full-width spaces around Chinese labels to force Mermaid to calculate a wider box
+        // Full-width ideographic spaces (　) are measured more reliably as "wide"
+        const sanitizedChart = chart.replace(/\[(.*?)\]/g, (match, p1) => `[　${p1.trim()}　]`)
+                                   .replace(/\{(.*?)\}/g, (match, p1) => `{　${p1.trim()}　}`)
+                                   .replace(/\((.*?)\)/g, (match, p1) => `(　${p1.trim()}　)`);
 
         const { svg: renderedSvg } = await mermaid.render(id, sanitizedChart, containerRef.current || undefined);
         
