@@ -11,64 +11,31 @@ export const onRequestPost: PagesFunction<{ MODELSCOPE_API_KEY: string }> =
       );
     }
 
-    const apiKeyString = context.env.MODELSCOPE_API_KEY;
-    if (!apiKeyString) {
+    const apiKey = context.env.MODELSCOPE_API_KEY;
+    if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: "MODELSCOPE_API_KEY not configured" }),
+        JSON.stringify({ error: "MODELSCOPE_API_KEY missing" }),
         { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const apiKeys = apiKeyString
-      .split(",")
-      .map(k => k.trim())
-      .filter(Boolean);
+    const date = new Date()
+      .toISOString()
+      .slice(0, 10)
+      .replace(/-/g, ".");
 
-    if (apiKeys.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "No valid API Keys found" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
+    const prompt = `
+你是一个道家哲学家与现代思想评论者。
+请严格按照 JSON 输出，不要解释，不要前缀。
 
-    const apiKey = apiKeys[Math.floor(Math.random() * apiKeys.length)];
+标题：${title}
 
-    const systemPrompt = `
-You are a "Daoist Philosopher & Deep Insight Analyst".
-You MUST output strictly valid JSON only. Do NOT explain. Do NOT add markdown fences.
-`;
-
-    const userPrompt = `
-Write a profound Chinese blog post titled "${title}".
-
-Strict requirements:
-
-1. Style: International editorial (Grand Editorial).
-2. Format: Markdown + inline HTML (NO code blocks).
-3. Content structure:
-   - Start with an abstract block (plain HTML):
-     <div class="abstract-container">
-       <div class="abstract-title">导读 / ABSTRACT</div>
-       <div class="abstract-content-wrapper">
-         <div class="abstract-drop-cap">${title[0]}</div>
-         <div class="abstract-text">[1–2 sentence summary]</div>
-       </div>
-     </div>
-
-   - Use ## for section headers.
-   - Include exactly ONE Mermaid flowchart (graph TD or LR). Each node ≤10 characters.
-   - End with a golden sentence block (plain HTML):
-     <div class="golden-sentence">
-       <div class="golden-sentence-icon">道</div>
-       [One poetic concluding sentence]
-     </div>
-
-4. Fields to return (JSON ONLY):
+返回字段（必须严格遵守）：
 {
   "title": "文章主标题",
-  "excerpt": "纯文本摘要（≤120字）",
-  "content": "完整正文（Markdown + HTML）",
-  "category": "哲学 | 科技 | 商业 | 认知"
+  "excerpt": "首页卡片摘要（≤120字）",
+  "content": "完整正文（Markdown + 内联 HTML）",
+  "category": "论道 | 悟道 | 经典 | 生活"
 }
 `;
 
@@ -81,13 +48,10 @@ Strict requirements:
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          input: {
-            prompt: userPrompt,
-            history: [],
-          },
+          input: { prompt, history: [] },
           parameters: {
             temperature: 0.7,
-            max_length: 3500,
+            max_length: 3200,
           },
         }),
       }
@@ -99,13 +63,26 @@ Strict requirements:
 
     const json = JSON.parse(extractJSON(text));
 
-    return new Response(JSON.stringify(json), {
+    const article = {
+      id: Date.now(),
+      slug: slugify(title),
+      title: json.title,
+      excerpt: json.excerpt,
+      content: json.content,
+      category: json.category,
+      date,
+    };
+
+    return new Response(JSON.stringify(article), {
       headers: { "Content-Type": "application/json" },
     });
 
   } catch (e: any) {
     return new Response(
-      JSON.stringify({ error: e.message }),
+      JSON.stringify({
+        error: "Generate failed",
+        message: e.message,
+      }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
@@ -116,4 +93,13 @@ function extractJSON(str: string): string {
   const end = str.lastIndexOf("}");
   if (start === -1 || end === -1) return str;
   return str.slice(start, end + 1);
+}
+
+function slugify(str: string): string {
+  return str
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w\-]/g, "")
+    .replace(/\-\-+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
