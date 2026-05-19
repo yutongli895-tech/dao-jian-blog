@@ -1,5 +1,3 @@
-import slugify from "slugify";
-
 export const onRequestPost: PagesFunction<{ MODELSCOPE_API_KEY: string }> =
   async (context) => {
 
@@ -65,7 +63,7 @@ export const onRequestPost: PagesFunction<{ MODELSCOPE_API_KEY: string }> =
 
     const article = {
       id: Date.now(),
-      slug: slugify(title, { lower: true, strict: true }),
+      slug: slugify(title),
       title: json.title,
       excerpt: json.excerpt,
       content: json.content,
@@ -93,4 +91,14 @@ function extractJSON(str: string): string {
   const end = str.lastIndexOf("}");
   if (start === -1 || end === -1) return str;
   return str.slice(start, end + 1);
+}
+
+/** ✅ Cloudflare 安全版 slug */
+function slugify(str: string): string {
+  return str
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w\-]/g, "")
+    .replace(/\-\-+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
