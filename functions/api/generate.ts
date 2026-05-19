@@ -25,7 +25,7 @@ export const onRequestPost: PagesFunction<{ MODELSCOPE_API_KEY: string }> =
 
   const prompt = `
 你是一个道家哲学家与现代思想评论者。
-你必须严格按照 JSON 输出，不要解释，不要前缀，不要后缀。
+你必须严格按照 JSON 输出，不要解释，不要前缀。
 
 标题：${title}
 
@@ -38,53 +38,74 @@ export const onRequestPost: PagesFunction<{ MODELSCOPE_API_KEY: string }> =
 }
 `;
 
-  const res = await fetch(
-    "https://api-inference.modelscope.cn/models/Qwen/Qwen2.5-72B-Instruct/predict",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        input: {
-          prompt,
-          history: [],
+  try {
+    const res = await fetch(
+      "https://api-inference.modelscope.cn/models/Qwen/Qwen2.5-72B-Instruct/predict",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
         },
-        parameters: {
-          temperature: 0.7,
-          max_length: 3500,
-        },
-      }),
+        body: JSON.stringify({
+          input: { prompt, history: [] },
+          parameters: { temperature: 0.7, max_length: 3500 },
+        }),
+      }
+    );
+
+    const text = await res.text();
+
+    // ✅ 关键防线：HTTP 层不假设 JSON
+    let aiText = "";
+    try {
+      const parsed = JSON.parse(text);
+      aiText = parsed?.output?.text ?? "";
+    } catch {
+      aiText = text;
     }
-  );
 
-  const raw = await res.text();
-  const parsed = JSON.parse(raw);
-  const text = parsed?.output?.text ?? "";
+    const json = safeParseJSON(aiText);
 
-  const json = JSON.parse(extractJSON(text));
+    const article = {
+      id: Date.now(),
+      slug: slugify(title),
+      title: json.title ?? title,
+      excerpt: json.excerpt ?? "探索万物之源的现代回响。",
+      content: json.content ?? `<p>${title} 的内容正在生成中。</p>`,
+      category: normalizeCategory(json.category),
+      date,
+    };
 
-  const article = {
-    id: Date.now(),
-    slug: slugify(title),
-    title: json.title,
-    excerpt: json.excerpt,
-    content: json.content,
-    category: json.category,
-    date,
-  };
+    return new Response(JSON.stringify(article), {
+      headers: { "Content-Type": "application/json" },
+    });
 
-  return new Response(JSON.stringify(article), {
-    headers: { "Content-Type": "application/json" },
-  });
+  } catch (e: any) {
+    return new Response(
+      JSON.stringify({ error: e.message }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
 };
 
-function extractJSON(str: string): string {
-  const start = str.indexOf("{");
-  const end = str.lastIndexOf("}");
-  if (start === -1 || end === -1) return str;
-  return str.slice(start, end + 1);
+function safeParseJSON(str: string): any {
+  try {
+    const cleaned = str
+      .replace(/^[\s\S]*?\{/, "{")
+      .replace(/\}[\s\S]*$/, "}");
+    return JSON.parse(cleaned);
+  } catch {
+    return {};
+  }
+}
+
+function normalizeCategory(cat?: string): string {
+  if (!cat) return "论道";
+  if (cat.includes("悟")) return "悟道";
+  if (cat.includes("经") || cat.includes("典")) return "经典";
+  if (cat.includes("生") || cat.includes("活")) return "生活";
+  return "论道";
 }
 
 function slugify(str: string): string {
