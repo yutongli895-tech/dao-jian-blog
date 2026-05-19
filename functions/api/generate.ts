@@ -69,7 +69,7 @@ export const onRequestPost: PagesFunction<{ MODELSCOPE_API_KEY: string }> =
       title: json.title ?? title,
       excerpt: json.excerpt ?? "探索万物之源的现代回响。",
       content: json.content ?? `<p>${title} 的内容正在生成中。</p>`,
-      category: json.category ?? "论道",
+      category: normalizeCategory(json.category),
       date,
     };
 
@@ -100,6 +100,14 @@ function safeParseJSON(str: string): any {
   } catch {
     return {};
   }
+}
+
+function normalizeCategory(cat?: string): string {
+  if (!cat) return "论道";
+  if (cat.includes("悟")) return "悟道";
+  if (cat.includes("经") || cat.includes("典")) return "经典";
+  if (cat.includes("生") || cat.includes("活")) return "生活";
+  return "论道";
 }
 
 function slugify(str: string): string {
