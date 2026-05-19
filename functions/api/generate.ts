@@ -1,79 +1,83 @@
-export const onRequestPost: PagesFunction<{
-  DB: D1Database;
-  MODELSCOPE_API_KEY: string;
-}> = async (context) => {
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+
+const app = new Hono();
+app.use(cors());
+
+// 工具函数：安全解析 JSON
+function safeParseJSON(str: string): any {
   try {
-    const { title } = await context.request.json<{ title?: string }>();
+    const cleaned = str
+      .replace(/^[\s\S]*?\{/, "{")
+      .replace(/\}[\s\S]*$/, "}");
+    return JSON.parse(cleaned);
+  } catch {
+    return {};
+  }
+}
 
-    if (!title) {
-      return new Response(
-        JSON.stringify({ error: "Missing title" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
+// 工具函数：规范化分类
+function normalizeCategory(cat?: string): string {
+  if (!cat) return "论道";
+  if (cat.includes("悟")) return "悟道";
+  if (cat.includes("经") || cat.includes("典")) return "经典";
+  if (cat.includes("生") || cat.includes("活")) return "生活";
+  return "论道";
+}
 
-    const apiKeyString = context.env.MODELSCOPE_API_KEY;
-    if (!apiKeyString) {
-      return new Response(
-        JSON.stringify({ error: "MODELSCOPE_API_KEY not configured" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
+// 工具函数：生成 slug
+function slugify(str: string): string {
+  return str
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w\-]/g, "")
+    .replace(/\-\-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
-    const apiKeys = apiKeyString
-      .split(",")
-      .map((k) => k.trim())
-      .filter(Boolean);
+// 生成文章接口
+app.post("/api/generate", async (c) => {
+  const payload = await c.req.json();
+  const { title, category } = payload;
 
-    if (apiKeys.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "No valid API Keys found" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
+  const apiKey = c.env.MODELSCOPE_API_KEY;
+  if (!apiKey) {
+    return new Response(
+      JSON.stringify({ error: "MODELSCOPE_API_KEY missing" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
 
-    const apiKey = apiKeys[Math.floor(Math.random() * apiKeys.length)];
+  const date = new Date().toISOString().split("T")[0].replace(/-/g, ".");
 
-    const date = new Date()
-      .toISOString()
-      .slice(0, 10)
-      .replace(/-/g, ".");
+  // 🔥 重点：强化 Prompt，要求“长文 + 哲学结构 + 图表 + 金句”
+  const prompt = `
+You are a master Daoist philosopher and long-form content writer.
+Write a profound, in-depth Chinese article based on the following title and category.
 
-    const prompt = `
-你是一个道家哲学家与现代思想评论者（Daoist Philosopher & Deep Insight Analyst）。
-你必须严格按照 JSON 输出，不要解释，不要前缀，不要后缀。
+📌 Requirements:
+- Article length: 1500–2500 words.
+- Structure: Use clear sections with philosophical headings (e.g., “本体论”, “战略层面”, “认知升维”).
+- Include at least one Mermaid diagram (flowchart) to visualize the core logic.
+- End with a “Golden Sentence” — a short, powerful quote that encapsulates the article’s essence.
+- Tone: Zen-like, academic, poetic, and deeply reflective.
+- Output format: Markdown + inline HTML (for diagrams and emphasis).
 
-标题：${title}
+⚠️ Output STRICTLY valid JSON only. Do NOT explain. Do NOT add markdown.
 
-要求（必须严格遵守）：
-1. 风格：国际社论（Grand Editorial）。
-2. 正文格式：Markdown + 内联 HTML。
-3. 正文结构必须包含：
-   - 开头：Abstract HTML 容器（不要包裹在代码块中）
-     <div class="abstract-container">
-       <div class="abstract-title">导读 / ABSTRACT</div>
-       <div class="abstract-content-wrapper">
-         <div class="abstract-drop-cap">${title[0]}</div>
-         <div class="abstract-text">[1–2 句深刻摘要]</div>
-       </div>
-     </div>
-   - 使用 ## 作为章节标题
-   - 恰好一张 Mermaid 流程图（graph TD 或 LR，节点文本 ≤10 字）
-   - 结尾：Golden Sentence HTML 容器
-     <div class="golden-sentence">
-       <div class="golden-sentence-icon">道</div>
-       [一句诗性结语]
-     </div>
-
-返回字段（JSON）：
+Return fields:
 {
-  "title": "文章主标题",
-  "excerpt": "纯文本摘要（≤120字）",
-  "content": "完整正文（Markdown + HTML）",
+  "title": "Chinese title",
+  "excerpt": "Short abstract (≤120 chars)",
+  "content": "Full article in Markdown + inline HTML",
   "category": "论道 | 悟道 | 经典 | 生活"
 }
+
+Title: ${title}
+Category: ${category}
 `;
 
+  try {
     const res = await fetch(
       "https://api-inference.modelscope.cn/models/Qwen/Qwen2.5-72B-Instruct/predict",
       {
@@ -85,7 +89,7 @@ export const onRequestPost: PagesFunction<{
         body: JSON.stringify({
           input: { prompt, history: [] },
           parameters: {
-            temperature: 0.7,
+            temperature: 0.7, // 提高一点创造性
             max_length: 4000,
           },
         }),
@@ -109,7 +113,7 @@ export const onRequestPost: PagesFunction<{
       slug: slugify(title),
       title: json.title ?? title,
       excerpt: json.excerpt ?? "探索万物之源的现代回响。",
-      content: json.content ?? `<p>${title} 的内容正在生成中。</p>`,
+      content: json.content ?? `${title} 的内容正在生成中。`,
       category: normalizeCategory(json.category),
       date,
     };
@@ -124,34 +128,96 @@ export const onRequestPost: PagesFunction<{
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
-};
+});
 
-/* ---------- 工具函数 ---------- */
+// 翻译接口（已对齐）
+app.post("/api/translate", async (c) => {
+  const payload = await c.req.json();
+  const { title, excerpt, content, category } = payload;
 
-function safeParseJSON(str: string): any {
-  try {
-    const cleaned = str
-      .replace(/^[\s\S]*?\{/, "{")
-      .replace(/\}[\s\S]*$/, "}");
-    return JSON.parse(cleaned);
-  } catch {
-    return {};
+  const apiKey = c.env.MODELSCOPE_API_KEY;
+  if (!apiKey) {
+    return new Response(
+      JSON.stringify({ error: "MODELSCOPE_API_KEY missing" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
+
+  const prompt = `
+You are a professional translator and Daoist philosopher.
+Translate the following Chinese blog post into elegant English.
+Keep the tone philosophical, Zen-like, and academic.
+
+📌 Requirements:
+- Translate ALL content: title, excerpt, body, category.
+- Preserve structure: headings, Mermaid diagrams (as code blocks), Golden Sentences.
+- Output format: Markdown + inline HTML.
+- Category mapping: 论道 → Philosophy, 悟道 → Enlightenment, 经典 → Classics, 生活 → Life.
+
+⚠️ Output STRICTLY valid JSON only. Do NOT explain.
+
+Return fields:
+{
+  "title": "English title",
+  "excerpt": "English excerpt",
+  "content": "English content (Markdown + inline HTML)",
+  "category": "Philosophy | Enlightenment | Classics | Life"
 }
 
-function normalizeCategory(cat?: string): string {
-  if (!cat) return "论道";
-  if (cat.includes("悟")) return "悟道";
-  if (cat.includes("经") || cat.includes("典")) return "经典";
-  if (cat.includes("生") || cat.includes("活")) return "生活";
-  return "论道";
-}
+Original article:
+Title: ${title}
+Category: ${category}
+Excerpt: ${excerpt}
+Content: ${content}
+`;
 
-function slugify(str: string): string {
-  return str
-    .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^\w\-]/g, "")
-    .replace(/\-\-+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
+  try {
+    const res = await fetch(
+      "https://api-inference.modelscope.cn/models/Qwen/Qwen2.5-72B-Instruct/predict",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          input: { prompt, history: [] },
+          parameters: {
+            temperature: 0.4,
+            max_length: 4000,
+          },
+        }),
+      }
+    );
+
+    const raw = await res.text();
+    let aiText = "";
+
+    try {
+      const parsed = JSON.parse(raw);
+      aiText = parsed?.output?.text ?? "";
+    } catch {
+      aiText = raw;
+    }
+
+    const json = safeParseJSON(aiText);
+
+    return new Response(
+      JSON.stringify({
+        title: json.title ?? title,
+        excerpt: json.excerpt ?? excerpt,
+        content: json.content ?? content,
+        category: json.category ?? "Philosophy",
+      }),
+      { headers: { "Content-Type": "application/json" } }
+    );
+
+  } catch (e: any) {
+    return new Response(
+      JSON.stringify({ error: e.message }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+});
+
+export default app;
