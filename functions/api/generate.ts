@@ -89,7 +89,7 @@ export const onRequestPost: PagesFunction<{ MODELSCOPE_API_KEY: string }> =
 };
 
 /**
- * ✅ 永不崩溃的 JSON 解析器
+ * ✅ 永不崩溃的 JSON 解析器（替代 Gemini responseSchema）
  */
 function safeParseJSON(str: string): any {
   try {
