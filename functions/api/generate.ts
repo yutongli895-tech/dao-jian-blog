@@ -18,20 +18,28 @@ export const onRequestPost: PagesFunction<{ MODELSCOPE_API_KEY: string }> =
     );
   }
 
+  const date = new Date()
+    .toISOString()
+    .slice(0, 10)
+    .replace(/-/g, ".");
+
   const prompt = `
 你是一个道家哲学家与现代思想评论者。
-请写一篇关于《${title}》的深度文章。
+你必须严格按照 JSON 输出，不要解释，不要前缀，不要后缀。
 
-要求：
-- 风格：国际社论（Grand Editorial）
-- 语言：简体中文
-- 格式：Markdown + 内联 HTML
-- 包含：摘要、章节、金句
-- 不要返回 JSON，只返回文章内容
+标题：${title}
+
+返回字段（必须严格遵守）：
+{
+  "title": "文章主标题",
+  "excerpt": "首页卡片摘要（≤120字）",
+  "content": "完整正文（Markdown + 内联 HTML）",
+  "category": "论道 | 悟道 | 经典 | 生活"
+}
 `;
 
   const res = await fetch(
-    "https://api-inference.modelscope.cn/models/ZhipuAI/GLM-5.1/predict",
+    "https://api-inference.modelscope.cn/models/Qwen/Qwen2.5-72B-Instruct/predict",
     {
       method: "POST",
       headers: {
@@ -39,24 +47,32 @@ export const onRequestPost: PagesFunction<{ MODELSCOPE_API_KEY: string }> =
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        input: { prompt, history: [] },
-        parameters: { temperature: 0.7, max_length: 3500 },
+        input: {
+          prompt,
+          history: [],
+        },
+        parameters: {
+          temperature: 0.7,
+          max_length: 3500,
+        },
       }),
     }
   );
 
   const raw = await res.text();
   const parsed = JSON.parse(raw);
-  const aiText = parsed?.output?.text ?? "";
+  const text = parsed?.output?.text ?? "";
+
+  const json = JSON.parse(extractJSON(text));
 
   const article = {
     id: Date.now(),
     slug: slugify(title),
-    title,
-    excerpt: aiText.slice(0, 120).replace(/\n/g, " ") + "…",
-    content: aiText,
-    category: "论道",
-    date: new Date().toISOString().slice(0, 10).replace(/-/g, "."),
+    title: json.title,
+    excerpt: json.excerpt,
+    content: json.content,
+    category: json.category,
+    date,
   };
 
   return new Response(JSON.stringify(article), {
@@ -64,6 +80,18 @@ export const onRequestPost: PagesFunction<{ MODELSCOPE_API_KEY: string }> =
   });
 };
 
+function extractJSON(str: string): string {
+  const start = str.indexOf("{");
+  const end = str.lastIndexOf("}");
+  if (start === -1 || end === -1) return str;
+  return str.slice(start, end + 1);
+}
+
 function slugify(str: string): string {
-  return str.toLowerCase().replace(/\s+/g, "-").replace(/[^\w\-]/g, "").slice(0, 80);
+  return str
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w\-]/g, "")
+    .replace(/\-\-+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
