@@ -1,31 +1,34 @@
-export const onRequestPost: PagesFunction<{ MODELSCOPE_API_KEY: string }> = async (context) => {
-  const { title } = await context.request.json<{ title: string }>();
+export const onRequestPost: PagesFunction<{ MODELSCOPE_API_KEY: string }> =
+  async (context) => {
+
+  const { title } = await context.request.json<{ title?: string }>();
+
+  if (!title) {
+    return new Response(
+      JSON.stringify({ error: "Missing title" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
 
   const apiKey = context.env.MODELSCOPE_API_KEY;
   if (!apiKey) {
     return new Response(
-      JSON.stringify({ error: "MODELSCOPE_API_KEY is missing" }),
+      JSON.stringify({ error: "MODELSCOPE_API_KEY missing" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 
   const prompt = `
-You are a Daoist Philosopher & Deep Insight Analyst.
-Write a profound Chinese blog post titled "${title}".
+你是一个道家哲学家与现代思想评论者。
+请严格按照 JSON 输出，不要解释，不要前缀。
 
-Requirements:
-1. Style: International editorial (Grand Editorial).
-2. Format: Markdown + inline HTML (NO code blocks).
-3. Structure:
-   - Abstract (HTML div)
-   - ## Sections
-   - ONE Mermaid flowchart (graph TD/LR, ≤10 chars per node)
-   - Golden sentence block (HTML div)
-4. Return JSON ONLY:
+标题：${title}
+
+返回字段：
 {
   "title": "...",
-  "excerpt": "Plain text abstract",
-  "content": "Full article in Markdown+HTML",
+  "excerpt": "纯文本摘要",
+  "content": "Markdown + 内联 HTML",
   "category": "哲学 | 科技 | 商业 | 认知"
 }
 `;
@@ -52,26 +55,53 @@ Requirements:
       }
     );
 
-    const data = await res.json();
+    const raw = await res.text();
 
-    if (!res.ok) {
-      console.error("ModelScope error:", data);
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
       return new Response(
-        JSON.stringify({ error: "ModelScope API error", detail: data }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "ModelScope returned non-JSON",
+          raw,
+        }),
+        { status: 502, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const text = data?.output?.text ?? "";
-    const json = JSON.parse(text);
+    const text = parsed?.output?.text ?? "";
+
+    if (!text) {
+      return new Response(
+        JSON.stringify({
+          error: "Empty model output",
+          parsed,
+        }),
+        { status: 502, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const json = JSON.parse(extractJSON(text));
 
     return new Response(JSON.stringify(json), {
       headers: { "Content-Type": "application/json" },
     });
+
   } catch (e) {
     return new Response(
-      JSON.stringify({ error: "Internal error", message: String(e) }),
+      JSON.stringify({
+        error: "Internal error",
+        message: String(e),
+      }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 };
+
+function extractJSON(str: string): string {
+  const start = str.indexOf("{");
+  const end = str.lastIndexOf("}");
+  if (start === -1 || end === -1) return str;
+  return str.slice(start, end + 1);
+}
