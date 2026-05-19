@@ -9,21 +9,19 @@ export const onRequestPost: PagesFunction<{ MODELSCOPE_API_KEY: string }> = asyn
     );
   }
 
-  const systemPrompt = `
+  const prompt = `
 You are a Daoist Philosopher & Deep Insight Analyst.
-Your task is to write a profound Chinese blog post titled "${title}".
-`;
+Write a profound Chinese blog post titled "${title}".
 
-  const userPrompt = `
 Requirements:
 1. Style: International editorial (Grand Editorial).
 2. Format: Markdown + inline HTML (NO code blocks).
 3. Structure:
-   - Abstract (plain HTML div)
+   - Abstract (HTML div)
    - ## Sections
    - ONE Mermaid flowchart (graph TD/LR, ≤10 chars per node)
    - Golden sentence block (HTML div)
-4. Fields to return (JSON ONLY):
+4. Return JSON ONLY:
 {
   "title": "...",
   "excerpt": "Plain text abstract",
@@ -33,22 +31,26 @@ Requirements:
 `;
 
   try {
-    const res = await fetch("https://api-inference.modelscope.cn/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "ZhipuAI/GLM-5.1",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 2500,
-      }),
-    });
+    const res = await fetch(
+      "https://api-inference.modelscope.cn/ZhipuAI/GLM-5.1/predict",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          input: {
+            prompt,
+            history: [],
+          },
+          parameters: {
+            temperature: 0.7,
+            max_length: 3000,
+          },
+        }),
+      }
+    );
 
     const data = await res.json();
 
@@ -60,7 +62,7 @@ Requirements:
       );
     }
 
-    const text = data?.choices?.[0]?.message?.content ?? "";
+    const text = data?.output?.text ?? "";
     const json = JSON.parse(text);
 
     return new Response(JSON.stringify(json), {
