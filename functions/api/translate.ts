@@ -15,14 +15,11 @@ export const onRequestPost: PagesFunction<{ MODELSCOPE_API_KEY: string }> = asyn
     );
   }
 
-  const systemPrompt = `
+  const prompt = `
 You are a professional translator and Daoist philosopher.
-Translate Chinese blog posts into fluent, elegant English.
+Translate the following Chinese blog post into fluent, elegant English.
 Keep the tone philosophical, Zen-like, and academic.
-`;
 
-  const userPrompt = `
-Translate the following blog post into English.
 Return JSON ONLY:
 
 {
@@ -40,22 +37,26 @@ Content: ${content}
 `;
 
   try {
-    const res = await fetch("https://api-inference.modelscope.cn/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "ZhipuAI/GLM-5.1",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.5,
-        max_tokens: 2500,
-      }),
-    });
+    const res = await fetch(
+      "https://api-inference.modelscope.cn/ZhipuAI/GLM-5.1/predict",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          input: {
+            prompt,
+            history: [],
+          },
+          parameters: {
+            temperature: 0.5,
+            max_length: 2500,
+          },
+        }),
+      }
+    );
 
     const data = await res.json();
 
@@ -67,7 +68,8 @@ Content: ${content}
       );
     }
 
-    const text = data?.choices?.[0]?.message?.content ?? "";
+    // ModelScope 返回在 output.text
+    const text = data?.output?.text ?? "";
     const json = JSON.parse(text);
 
     return new Response(JSON.stringify(json), {
