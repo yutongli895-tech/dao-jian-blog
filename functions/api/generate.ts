@@ -1,11 +1,5 @@
 export const onRequestPost: PagesFunction<{ MODELSCOPE_API_KEY: string }> = async (context) => {
-  const { title, excerpt, content, category } =
-    await context.request.json<{
-      title: string;
-      excerpt: string;
-      content: string;
-      category: string;
-    }>();
+  const { title } = await context.request.json<{ title: string }>();
 
   const apiKey = context.env.MODELSCOPE_API_KEY;
   if (!apiKey) {
@@ -16,27 +10,26 @@ export const onRequestPost: PagesFunction<{ MODELSCOPE_API_KEY: string }> = asyn
   }
 
   const systemPrompt = `
-You are a professional translator and Daoist philosopher.
-Translate Chinese blog posts into fluent, elegant English.
-Keep the tone philosophical, Zen-like, and academic.
+You are a Daoist Philosopher & Deep Insight Analyst.
+Your task is to write a profound Chinese blog post titled "${title}".
 `;
 
   const userPrompt = `
-Translate the following blog post into English.
-Return JSON ONLY:
-
+Requirements:
+1. Style: International editorial (Grand Editorial).
+2. Format: Markdown + inline HTML (NO code blocks).
+3. Structure:
+   - Abstract (plain HTML div)
+   - ## Sections
+   - ONE Mermaid flowchart (graph TD/LR, ≤10 chars per node)
+   - Golden sentence block (HTML div)
+4. Fields to return (JSON ONLY):
 {
   "title": "...",
-  "excerpt": "...",
-  "content": "...",
-  "category": "..."
+  "excerpt": "Plain text abstract",
+  "content": "Full article in Markdown+HTML",
+  "category": "哲学 | 科技 | 商业 | 认知"
 }
-
-Original:
-Title: ${title}
-Category: ${category}
-Excerpt: ${excerpt}
-Content: ${content}
 `;
 
   try {
@@ -52,7 +45,7 @@ Content: ${content}
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        temperature: 0.5,
+        temperature: 0.7,
         max_tokens: 2500,
       }),
     });
