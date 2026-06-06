@@ -43,10 +43,12 @@ export default function App() {
   const fetchPosts = async () => {
     try {
       const res = await fetch('/api/posts');
-      const data = await res.json() as Post[];
-      setPosts(data);
+      const json = await res.json();
+      // Cloudflare D1 返回 { results: [...] } 格式
+      const data = Array.isArray(json) ? json : (json.results || []);
+      setPosts(data as Post[]);
     } catch (err) {
-      console.error('Failed to fetch posts');
+      console.error('Failed to fetch posts', err);
     }
   };
 
