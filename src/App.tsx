@@ -44,8 +44,8 @@ export default function App() {
     try {
       const res = await fetch('/api/posts');
       const json = await res.json();
-      // Cloudflare D1 返回 { results: [...] } 格式
-      const data = Array.isArray(json) ? json : (json.results || []);
+      // API 返回 { success: true, data: { posts: [...], pagination: {...} } }
+      const data = Array.isArray(json) ? json : (json.data?.posts || json.results || []);
       setPosts(data as Post[]);
     } catch (err) {
       console.error('Failed to fetch posts', err);
