@@ -23,14 +23,18 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const generateWithAI = async () => {
     if (!editingPost?.title_cn) {
-      alert("请先输入文章标题。");
+      setError("请先输入文章标题。");
       return;
     }
-    
+
     setIsGenerating(true);
+    setError(null);
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
@@ -41,8 +45,11 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
         body: JSON.stringify({ title: editingPost.title_cn })
       });
 
-      if (!res.ok) throw new Error('Generation failed');
-      
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Generation failed');
+      }
+
       const result = await res.json() as { title: string; excerpt: string; content: string; category: string };
       setEditingPost({
         ...editingPost,
@@ -51,9 +58,9 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
         content_cn: result.content,
         category_cn: result.category
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Generation failed:", error);
-      alert("生成失败，请检查网络或重试。");
+      setError(error.message || "生成失败，请检查网络或重试。");
     } finally {
       setIsGenerating(false);
     }
@@ -61,8 +68,9 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
 
   const translateWithAI = async () => {
     if (!editingPost?.title_cn && !editingPost?.content_cn) return;
-    
+
     setIsTranslating(true);
+    setError(null);
     try {
       const res = await fetch('/api/translate', {
         method: 'POST',
@@ -78,8 +86,11 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
         })
       });
 
-      if (!res.ok) throw new Error('Translation failed');
-      
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Translation failed');
+      }
+
       const result = await res.json() as { title: string; excerpt: string; content: string; category: string };
       setEditingPost({
         ...editingPost,
@@ -88,18 +99,24 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
         content_en: result.content,
         category_en: result.category
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Translation failed:", error);
-      alert("翻译失败，请检查网络或重试。");
+      setError(error.message || "翻译失败，请检查网络或重试。");
     } finally {
       setIsTranslating(false);
     }
   };
 
   const fetchPosts = async () => {
-    const res = await fetch('/api/posts');
-    const data = await res.json() as Post[];
-    setPosts(data);
+    try {
+      const res = await fetch('/api/posts');
+      if (!res.ok) throw new Error('Failed to fetch posts');
+      const json = await res.json();
+      const data = json.data || json;
+      setPosts(data.posts || []);
+    } catch (error: any) {
+      setError(error.message);
+    }
   };
 
   useEffect(() => {
@@ -110,32 +127,60 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
     e.preventDefault();
     if (!editingPost) return;
 
+    setIsSaving(true);
+    setError(null);
+
     const method = editingPost.id ? 'PUT' : 'POST';
     const url = editingPost.id ? `/api/posts/${editingPost.id}` : '/api/posts';
 
-    const res = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify(editingPost),
-    });
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(editingPost),
+      });
 
-    if (res.ok) {
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Save failed');
+      }
+
       setIsModalOpen(false);
       setEditingPost(null);
       fetchPosts();
+    } catch (error: any) {
+      setError(error.message || '保存失败，请重试。');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('确定要删除这篇文章吗？')) return;
-    const res = await fetch(`/api/posts/${id}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token}` },
-    });
-    if (res.ok) fetchPosts();
+    if (!confirm('确定要删除这篇文章吗？此操作不可撤销。')) return;
+
+    setIsDeleting(id);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/posts/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Delete failed');
+      }
+
+      fetchPosts();
+    } catch (error: any) {
+      setError(error.message || '删除失败，请重试。');
+    } finally {
+      setIsDeleting(null);
+    }
   };
 
   const openEdit = (post: Post | null) => {
@@ -148,6 +193,7 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
       published: 1
     });
     setIsModalOpen(true);
+    setError(null);
   };
 
   return (
@@ -156,13 +202,13 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-12 gap-6">
           <h1 className="text-2xl sm:text-4xl font-serif tracking-widest uppercase">后台管理系统</h1>
           <div className="flex flex-wrap gap-4 w-full sm:w-auto">
-            <button 
+            <button
               onClick={() => openEdit(null)}
               className="flex-1 sm:flex-none px-6 py-2 bg-moss text-paper flex items-center justify-center gap-2 text-xs uppercase tracking-widest hover:bg-ink transition-colors"
             >
               <Plus className="w-4 h-4" /> 发布新文章
             </button>
-            <button 
+            <button
               onClick={onLogout}
               className="flex-1 sm:flex-none px-6 py-2 border border-ink/20 flex items-center justify-center gap-2 text-xs uppercase tracking-widest hover:bg-ink hover:text-paper transition-colors"
             >
@@ -170,6 +216,16 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
             </button>
           </div>
         </div>
+
+        {/* 错误提示 */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 text-sm">
+            {error}
+            <button onClick={() => setError(null)} className="ml-4 text-red-500 hover:text-red-700">
+              <X className="w-4 h-4 inline" />
+            </button>
+          </div>
+        )}
 
         <div className="grid gap-6">
           {posts.map((post) => (
@@ -180,7 +236,13 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
               </div>
               <div className="flex gap-4">
                 <button onClick={() => openEdit(post)} className="p-2 hover:text-moss transition-colors"><Edit className="w-5 h-5" /></button>
-                <button onClick={() => handleDelete(post.id!)} className="p-2 hover:text-red-500 transition-colors"><Trash className="w-5 h-5" /></button>
+                <button
+                  onClick={() => handleDelete(post.id!)}
+                  disabled={isDeleting === post.id}
+                  className="p-2 hover:text-red-500 transition-colors disabled:opacity-50"
+                >
+                  {isDeleting === post.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash className="w-5 h-5" />}
+                </button>
               </div>
             </div>
           ))}
@@ -190,8 +252,8 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
       {/* Modal */}
       {isModalOpen && editingPost && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-ink/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-          <motion.div 
+          <div className="absolute inset-0 bg-ink/80 backdrop-blur-sm" onClick={() => !isSaving && setIsModalOpen(false)} />
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="relative w-full max-w-4xl bg-paper p-6 sm:p-12 max-h-[90vh] overflow-y-auto shadow-2xl"
@@ -199,7 +261,7 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full">
                 <h2 className="text-xl sm:text-2xl font-serif uppercase tracking-widest">{editingPost.id ? '编辑文章' : '发布文章'}</h2>
-                <button 
+                <button
                   type="button"
                   onClick={translateWithAI}
                   disabled={isTranslating}
@@ -208,7 +270,7 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
                   {isTranslating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Languages className="w-3 h-3" />}
                   {isTranslating ? '翻译中...' : '一键翻译至英文'}
                 </button>
-                <button 
+                <button
                   type="button"
                   onClick={generateWithAI}
                   disabled={isGenerating}
@@ -218,14 +280,21 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
                   {isGenerating ? '生成中...' : '一键生成内容'}
                 </button>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="absolute top-6 right-6 sm:relative sm:top-0 sm:right-0"><X className="w-6 h-6" /></button>
+              <button onClick={() => !isSaving && setIsModalOpen(false)} className="absolute top-6 right-6 sm:relative sm:top-0 sm:right-0"><X className="w-6 h-6" /></button>
             </div>
+
+            {/* Modal 内错误提示 */}
+            {error && (
+              <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 text-sm">
+                {error}
+              </div>
+            )}
 
             <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-6">
                 <div>
                   <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">标题 (中文)</label>
-                  <input 
+                  <input
                     value={editingPost.title_cn}
                     onChange={(e) => setEditingPost({ ...editingPost, title_cn: e.target.value })}
                     className="w-full p-3 bg-transparent border border-ink/20 outline-none focus:border-ink"
@@ -234,7 +303,7 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
                 </div>
                 <div>
                   <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Title (English)</label>
-                  <input 
+                  <input
                     value={editingPost.title_en}
                     onChange={(e) => setEditingPost({ ...editingPost, title_en: e.target.value })}
                     className="w-full p-3 bg-transparent border border-ink/20 outline-none focus:border-ink"
@@ -243,7 +312,7 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
                 </div>
                 <div>
                   <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">分类 (中文)</label>
-                  <input 
+                  <input
                     value={editingPost.category_cn}
                     onChange={(e) => setEditingPost({ ...editingPost, category_cn: e.target.value })}
                     className="w-full p-3 bg-transparent border border-ink/20 outline-none focus:border-ink"
@@ -252,7 +321,7 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
                 </div>
                 <div>
                   <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Category (English)</label>
-                  <input 
+                  <input
                     value={editingPost.category_en}
                     onChange={(e) => setEditingPost({ ...editingPost, category_en: e.target.value })}
                     className="w-full p-3 bg-transparent border border-ink/20 outline-none focus:border-ink"
@@ -264,7 +333,7 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
               <div className="space-y-6">
                 <div>
                   <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">摘要 (中文)</label>
-                  <textarea 
+                  <textarea
                     value={editingPost.excerpt_cn}
                     onChange={(e) => setEditingPost({ ...editingPost, excerpt_cn: e.target.value })}
                     className="w-full p-3 bg-transparent border border-ink/20 outline-none focus:border-ink h-24"
@@ -273,7 +342,7 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
                 </div>
                 <div>
                   <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Excerpt (English)</label>
-                  <textarea 
+                  <textarea
                     value={editingPost.excerpt_en}
                     onChange={(e) => setEditingPost({ ...editingPost, excerpt_en: e.target.value })}
                     className="w-full p-3 bg-transparent border border-ink/20 outline-none focus:border-ink h-24"
@@ -282,7 +351,7 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
                 </div>
                 <div>
                   <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">封面图 URL</label>
-                  <input 
+                  <input
                     value={editingPost.image}
                     onChange={(e) => setEditingPost({ ...editingPost, image: e.target.value })}
                     className="w-full p-3 bg-transparent border border-ink/20 outline-none focus:border-ink"
@@ -294,7 +363,7 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
               <div className="md:col-span-2 space-y-6">
                 <div>
                   <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">正文内容 (中文 - 支持 Markdown)</label>
-                  <textarea 
+                  <textarea
                     value={editingPost.content_cn}
                     onChange={(e) => setEditingPost({ ...editingPost, content_cn: e.target.value })}
                     className="w-full p-3 bg-transparent border border-ink/20 outline-none focus:border-ink h-48"
@@ -303,7 +372,7 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
                 </div>
                 <div>
                   <label className="block text-[10px] uppercase tracking-widest font-bold mb-2">Content (English - Markdown Support)</label>
-                  <textarea 
+                  <textarea
                     value={editingPost.content_en}
                     onChange={(e) => setEditingPost({ ...editingPost, content_en: e.target.value })}
                     className="w-full p-3 bg-transparent border border-ink/20 outline-none focus:border-ink h-48"
@@ -313,11 +382,13 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
               </div>
 
               <div className="md:col-span-2">
-                <button 
+                <button
                   type="submit"
-                  className="w-full py-4 bg-ink text-paper flex items-center justify-center gap-2 uppercase tracking-widest text-xs hover:bg-moss transition-colors"
+                  disabled={isSaving}
+                  className="w-full py-4 bg-ink text-paper flex items-center justify-center gap-2 uppercase tracking-widest text-xs hover:bg-moss transition-colors disabled:opacity-50"
                 >
-                  <Save className="w-4 h-4" /> 保存并发布
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {isSaving ? '保存中...' : '保存并发布'}
                 </button>
               </div>
             </form>

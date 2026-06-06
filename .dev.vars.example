@@ -1,0 +1,15 @@
+# 本地开发环境变量示例
+# 复制此文件为 .dev.vars 并填写实际值
+
+# JWT 密钥（必须至少 32 个字符）
+JWT_SECRET=your-super-secret-jwt-key-at-least-32-characters-long
+
+# Agnes AI API Key（支持多个 key 用逗号分隔）
+AGNES_API_KEY=your-agnes-api-key-here
+
+# 管理员密码（必须至少 8 个字符）
+ADMIN_PASSWORD=your-secure-admin-password
+
+# Agnes AI 配置（可选，有默认值）
+# AGNES_BASE_URL=https://api.agnes-2.0-flash.com/v1
+# AGNES_MODEL=Agnes-2.0-Flash

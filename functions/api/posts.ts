@@ -1,42 +1,80 @@
-import * as jose from 'jose';
+import { authenticate, queryDb, errorResponse, successResponse } from '../utils';
 
-async function authenticate(request: Request, env: { JWT_SECRET?: string }) {
-  const token = request.headers.get('Authorization')?.split(' ')[1];
-  if (!token) return null;
-  const JWT_SECRET = new TextEncoder().encode(env.JWT_SECRET || 'dao-secret-key');
+export async function onRequestGet(context: any) {
   try {
-    const { payload } = await jose.jwtVerify(token, JWT_SECRET);
-    return payload;
-  } catch (e) {
-    return null;
+    const url = new URL(context.request.url);
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const limit = parseInt(url.searchParams.get('limit') || '10');
+    const search = url.searchParams.get('search') || '';
+    const offset = (page - 1) * limit;
+
+    let whereClause = 'WHERE published = 1';
+    let params: any[] = [];
+
+    if (search) {
+      whereClause += ' AND (title_cn LIKE ? OR title_en LIKE ? OR content_cn LIKE ? OR content_en LIKE ?)';
+      const searchPattern = `%${search}%`;
+      params.push(searchPattern, searchPattern, searchPattern, searchPattern);
+    }
+
+    const postsResult = await queryDb(context,
+      `SELECT * FROM posts ${whereClause} ORDER BY date DESC LIMIT ? OFFSET ?`,
+      [...params, limit, offset],
+      'all'
+    ) as any;
+    const posts = postsResult.results || [];
+
+    const countResult = await queryDb(context,
+      `SELECT COUNT(*) as count FROM posts ${whereClause}`,
+      params,
+      'get'
+    ) as any;
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: {
+        posts,
+        pagination: {
+          page,
+          limit,
+          total: countResult?.count || 0,
+          totalPages: Math.ceil((countResult?.count || 0) / limit),
+        }
+      }
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (error: any) {
+    return errorResponse(error.message);
   }
 }
 
-export const onRequestGet: PagesFunction<{ DB: D1Database }> = async ({ env }) => {
-  const { results } = await env.DB.prepare('SELECT * FROM posts ORDER BY date DESC').all();
-  return new Response(JSON.stringify(results), {
-    headers: { 'Content-Type': 'application/json' }
-  });
-};
+export async function onRequestPost(context: any) {
+  // 认证
+  const authResult = await authenticate(context);
+  if (authResult instanceof Response) return authResult;
 
-export const onRequestPost: PagesFunction<{ DB: D1Database; JWT_SECRET?: string }> = async ({ request, env }) => {
-  const user = await authenticate(request, env);
-  if (!user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' }
-    });
+  try {
+    const body = await context.request.json();
+    const { title_cn, title_en, excerpt_cn, excerpt_en, content_cn, content_en, category_cn, category_en, image, published } = body;
+
+    // 验证必填字段
+    if (!title_cn || !title_en || !content_cn || !content_en) {
+      return errorResponse('Missing required fields', 400);
+    }
+
+    const date = new Date().toISOString().split('T')[0].replace(/-/g, '.');
+
+    const result = await queryDb(context,
+      `INSERT INTO posts (title_cn, title_en, excerpt_cn, excerpt_en, content_cn, content_en, category_cn, category_en, image, date, published)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [title_cn, title_en, excerpt_cn, excerpt_en, content_cn, content_en, category_cn, category_en, image || '', date, published || 1],
+      'run'
+    ) as any;
+
+    return successResponse({ id: result.meta?.last_row_id });
+  } catch (error: any) {
+    return errorResponse(error.message);
   }
-
-  const { title_cn, title_en, excerpt_cn, excerpt_en, content_cn, content_en, category_cn, category_en, image } = await request.json() as any;
-  const date = new Date().toISOString().split('T')[0].replace(/-/g, '.');
-  
-  const result = await env.DB.prepare(`
-    INSERT INTO posts (title_cn, title_en, excerpt_cn, excerpt_en, content_cn, content_en, category_cn, category_en, image, date)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(title_cn, title_en, excerpt_cn, excerpt_en, content_cn, content_en, category_cn, category_en, image, date).run();
-  
-  return new Response(JSON.stringify({ id: result.meta.last_row_id }), {
-    headers: { 'Content-Type': 'application/json' }
-  });
-};
+}
