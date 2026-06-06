@@ -60,11 +60,11 @@ export function successResponse(data: any, status: number = 200) {
 
 // Agnes AI 调用函数（OpenAI 兼容格式）
 export async function callAgnesAI(context: any, systemPrompt: string, userContent: string) {
-  const baseUrl = context.env.AGNES_BASE_URL || 'https://api.agnes-2.0-flash.com/v1';
-  const model = context.env.AGNES_MODEL || 'Agnes-2.0-Flash';
+  const baseUrl = context.env.AI_BASE_URL || 'https://api-inference.modelscope.cn/v1';
+  const model = context.env.AI_MODEL || 'deepseek-ai/DeepSeek-V4-Flash';
 
-  const apiKeyString = context.env.AGNES_API_KEY;
-  if (!apiKeyString) throw new Error('AGNES_API_KEY not configured');
+  const apiKeyString = context.env.AI_API_KEY;
+  if (!apiKeyString) throw new Error('AI_API_KEY not configured');
 
   const apiKeys = apiKeyString.split(',').map((k: string) => k.trim()).filter(Boolean);
   if (apiKeys.length === 0) throw new Error('No valid API Keys found');
@@ -85,18 +85,23 @@ export async function callAgnesAI(context: any, systemPrompt: string, userConten
       ],
       temperature: 0.7,
       max_tokens: 4096,
-      response_format: { type: 'json_object' },
     }),
   });
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`Agnes API error (${res.status}): ${errText}`);
+    throw new Error(`AI API error (${res.status}): ${errText}`);
   }
 
   const data = await res.json() as any;
-  const text = data.choices?.[0]?.message?.content;
-  if (!text) throw new Error('Empty response from Agnes API');
+  let text = data.choices?.[0]?.message?.content;
+  if (!text) throw new Error('Empty response from AI API');
 
-  return JSON.parse(text);
+  // 尝试解析 JSON，如果失败则返回原始文本
+  try {
+    return JSON.parse(text);
+  } catch {
+    // 如果模型返回的不是 JSON，包装一下
+    return { raw: text };
+  }
 }
