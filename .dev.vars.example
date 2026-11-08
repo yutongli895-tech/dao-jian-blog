@@ -1,8 +1,13 @@
 # 必需
 JWT_SECRET=your-jwt-secret-here
-AI_API_KEY=ms-your-api-key-here
 ADMIN_PASSWORD=your-admin-password-here
 
+# AI 密钥（配几家就能用几家，可全配）
+AI_API_KEY=ms-your-api-key-here
+# SENSENOVA_API_KEY=your-sensenova-key-here
+# INFERX_API_KEY=your-inferx-key-here
+
 # 可选（有默认值，可不填）
-# AI_BASE_URL=https://api-inference.modelscope.cn/v1
 # AI_MODEL=deepseek-ai/DeepSeek-V4-Flash
+# SENSENOVA_MODEL=sensenova-6.8-flash-lite
+# INFERX_MODEL=deepseek-v4.1-flash-1017-basic

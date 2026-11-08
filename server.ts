@@ -8,6 +8,7 @@ import * as jose from 'jose';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import { z, ZodError } from 'zod';
+import { callAI, listProvidersStatus } from './functions/utils';
 
 dotenv.config();
 
@@ -16,11 +17,16 @@ dotenv.config();
 // ========================
 const envSchema = z.object({
   JWT_SECRET: z.string().min(32, 'JWT_SECRET 必须至少 32 个字符'),
-  AGNES_API_KEY: z.string().min(1, 'AGNES_API_KEY 不能为空'),
   ADMIN_PASSWORD: z.string().min(8, 'ADMIN_PASSWORD 必须至少 8 个字符'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   ALLOWED_ORIGIN: z.string().optional(),
   PORT: z.string().optional(),
+  // 三家 AI 服务商，至少配一把（与线上 functions/utils.ts 的 PROVIDERS 对应）
+  AI_API_KEY: z.string().optional(),
+  SENSENOVA_API_KEY: z.string().optional(),
+  INFERX_API_KEY: z.string().optional(),
+}).refine((v) => Boolean(v.AI_API_KEY || v.SENSENOVA_API_KEY || v.INFERX_API_KEY), {
+  message: '至少配置一家 AI 密钥：AI_API_KEY（魔搭）/ SENSENOVA_API_KEY（商汤）/ INFERX_API_KEY（InferX）',
 });
 
 const env = envSchema.parse(process.env);
@@ -29,48 +35,14 @@ const JWT_SECRET = new TextEncoder().encode(env.JWT_SECRET);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ========================
-// Agnes AI 配置
+// AI 调用
 // ========================
-const AGNES_BASE_URL = process.env.AGNES_BASE_URL || 'https://api.agnes-2.0-flash.com/v1';
-const AGNES_MODEL = process.env.AGNES_MODEL || 'Agnes-2.0-Flash';
-
-// Agnes AI 调用函数（OpenAI 兼容格式）
-async function callAgnesAI(systemPrompt: string, userContent: string) {
-  const apiKeyString = env.AGNES_API_KEY;
-  const apiKeys = apiKeyString.split(',').map(k => k.trim()).filter(Boolean);
-  if (apiKeys.length === 0) throw new Error('No valid API Keys found');
-
-  const apiKey = apiKeys[Math.floor(Math.random() * apiKeys.length)];
-
-  const res = await fetch(`${AGNES_BASE_URL}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: AGNES_MODEL,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userContent }
-      ],
-      temperature: 0.7,
-      max_tokens: 4096,
-      response_format: { type: 'json_object' },
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Agnes API error (${res.status}): ${errText}`);
-  }
-
-  const data = await res.json() as any;
-  const text = data.choices?.[0]?.message?.content;
-  if (!text) throw new Error('Empty response from Agnes API');
-
-  return JSON.parse(text);
-}
+// 直接复用线上同一份 functions/utils.ts 的服务商清单与降级逻辑，
+// 不另抄一遍 —— 否则本地能跑、线上报错，排查时无从下手。
+const callAgnesAI = async (systemPrompt: string, userContent: string, provider?: string) => {
+  const result = await callAI({ env: process.env }, systemPrompt, userContent, provider);
+  return { ...result.data, provider: result.provider, providerLabel: result.providerLabel, model: result.model };
+};
 
 // ========================
 // 数据库初始化
@@ -308,18 +280,21 @@ async function startServer() {
   // AI 翻译（使用 Agnes API）
   app.post('/api/translate', authenticate, asyncHandler(async (req: AuthenticatedRequest, res: express.Response) => {
     try {
-      const { title, excerpt, content, category } = req.body;
+      const { title, excerpt, content, category, provider } = req.body;
 
       const result = await callAgnesAI(
         `You are a professional translator specializing in Chinese-to-English translation for a philosophical blog.
          Keep the tone professional and philosophical (DAO/Zen style).
-         Return the result in valid JSON format with keys: title, excerpt, content, category.`,
+         Preserve all Markdown and HTML structures exactly as they are — only translate the human-readable text inside them.
+         Return the result in valid JSON format with keys: title, excerpt, content, category.
+         Output ONLY the raw JSON object — no markdown code fences, no extra commentary.`,
         `Translate the following blog post content from Chinese to English.
 
 Title: ${title}
 Category: ${category}
 Excerpt: ${excerpt}
-Content: ${content}`
+Content: ${content}`,
+        provider
       );
 
       res.json(result);
@@ -332,7 +307,7 @@ Content: ${content}`
   // AI 生成（使用 Agnes API）
   app.post('/api/generate', authenticate, asyncHandler(async (req: AuthenticatedRequest, res: express.Response) => {
     try {
-      const { title } = req.body;
+      const { title, provider } = req.body;
 
       const result = await callAgnesAI(
         `You are a "Daoist Philosopher & Deep Insight Analyst".
@@ -359,8 +334,10 @@ Content: ${content}`
          3. The "excerpt" field should be a plain text version of the abstract.
          4. Suggest a suitable category (e.g., 哲学, 科技, 商业, 认知).
 
-         Return the result in valid JSON format with keys: title, excerpt, content, category.`,
-        `Write a deep, insightful blog post based on this title: "${title}"`
+         Return the result in valid JSON format with keys: title, excerpt, content, category.
+         Output ONLY the raw JSON object — no markdown code fences, no extra commentary.`,
+        `Write a deep, insightful blog post based on this title: "${title}"`,
+        provider
       );
 
       res.json(result);
@@ -369,6 +346,16 @@ Content: ${content}`
       res.status(500).json({ error: error.message || 'Generation failed' });
     }
   }));
+
+  // AI 服务商自检（本地开发，与线上 /api/ai-status 同源）
+  app.get('/api/ai-status', (req, res) => {
+    const providers = listProvidersStatus(process.env);
+    res.json({
+      ok: providers.some((p) => p.configured),
+      providers,
+      defaultProvider: providers.find((p) => p.configured)?.id || null,
+    });
+  });
 
   // ========================
   // 全局错误处理
@@ -400,7 +387,10 @@ Content: ${content}`
   const PORT = parseInt(env.PORT || '3000');
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
-    console.log(`AI Provider: Agnes (${AGNES_BASE_URL})`);
+    const status = listProvidersStatus(process.env);
+    for (const p of status) {
+      console.log(`AI Provider: ${p.label} (${p.model}) — ${p.configured ? `已绑定 ${p.keySource}` : `未配置 ${'密钥'}`}`);
+    }
   });
 }
 

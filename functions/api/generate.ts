@@ -1,4 +1,4 @@
-import { authenticate, callAgnesAI, errorResponse, successResponse } from '../utils';
+import { authenticate, callAI, errorResponse, successResponse } from '../utils';
 
 export async function onRequestPost(context: any) {
   // 认证
@@ -6,9 +6,9 @@ export async function onRequestPost(context: any) {
   if (authResult instanceof Response) return authResult;
 
   try {
-    const { title } = await context.request.json();
+    const { title, provider } = await context.request.json();
 
-    const result = await callAgnesAI(
+    const result = await callAI(
       context,
       `You are a "Daoist Philosopher & Deep Insight Analyst".
        Your task is to write a deep, insightful blog post in Chinese based on the given title.
@@ -34,11 +34,19 @@ export async function onRequestPost(context: any) {
        3. The "excerpt" field should be a plain text version of the abstract.
        4. Suggest a suitable category (e.g., 哲学, 科技, 商业, 认知).
 
-       Return the result in valid JSON format with keys: title, excerpt, content, category.`,
-      `Write a deep, insightful blog post based on this title: "${title}"`
+       Return the result in valid JSON format with keys: title, excerpt, content, category.
+       Output ONLY the raw JSON object — no markdown code fences, no extra commentary.`,
+      `Write a deep, insightful blog post based on this title: "${title}"`,
+      provider
     );
 
-    return successResponse(result);
+    // provider / model 回显：前端据此显示"本次由谁生成"，出问题时也知道该查哪家
+    return successResponse({
+      ...result.data,
+      provider: result.provider,
+      providerLabel: result.providerLabel,
+      model: result.model,
+    });
   } catch (error: any) {
     console.error('Generation error:', error.message);
     return errorResponse(error.message || 'Generation failed');

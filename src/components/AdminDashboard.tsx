@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Plus, Edit, Trash, LogOut, Save, X, Languages, Loader2, Sparkles } from 'lucide-react';
+import { Plus, Edit, Trash, LogOut, Save, X, Languages, Loader2, Sparkles, Cpu } from 'lucide-react';
+
+interface ProviderInfo {
+  id: string;
+  label: string;
+  model: string;
+  configured: boolean;
+  keySource: string | null;
+}
 
 interface Post {
   id?: number;
@@ -27,6 +35,32 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // AI 服务商：只显示已绑定密钥的，选择存 localStorage（下次打开还是这家）
+  const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  const [providerId, setProviderId] = useState<string>('');
+  const [lastProvider, setLastProvider] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/ai-status')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: any) => {
+        if (!data?.providers) return;
+        const usable: ProviderInfo[] = (data.providers as ProviderInfo[]).filter((p) => p.configured);
+        setProviders(usable);
+        const saved = localStorage.getItem('daojian.provider');
+        const initial = usable.find((p) => p.id === saved)?.id || usable[0]?.id || '';
+        setProviderId(initial);
+      })
+      .catch(() => {
+        /* 自检失败不影响写作，静默忽略 */
+      });
+  }, []);
+
+  const chooseProvider = (id: string) => {
+    setProviderId(id);
+    localStorage.setItem('daojian.provider', id);
+  };
+
   const generateWithAI = async () => {
     if (!editingPost?.title_cn) {
       setError("请先输入文章标题。");
@@ -42,15 +76,16 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ title: editingPost.title_cn })
+        body: JSON.stringify({ title: editingPost.title_cn, provider: providerId || undefined })
       });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
+        const errData: any = await res.json().catch(() => ({}));
         throw new Error(errData.error || 'Generation failed');
       }
 
-      const result = await res.json() as { title: string; excerpt: string; content: string; category: string };
+      const result = await res.json() as { title: string; excerpt: string; content: string; category: string; providerLabel?: string };
+      if (result.providerLabel) setLastProvider(result.providerLabel);
       setEditingPost({
         ...editingPost,
         title_cn: result.title,
@@ -82,16 +117,18 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
           title: editingPost.title_cn,
           category: editingPost.category_cn,
           excerpt: editingPost.excerpt_cn,
-          content: editingPost.content_cn
+          content: editingPost.content_cn,
+          provider: providerId || undefined
         })
       });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
+        const errData: any = await res.json().catch(() => ({}));
         throw new Error(errData.error || 'Translation failed');
       }
 
-      const result = await res.json() as { title: string; excerpt: string; content: string; category: string };
+      const result = await res.json() as { title: string; excerpt: string; content: string; category: string; providerLabel?: string };
+      if (result.providerLabel) setLastProvider(result.providerLabel);
       setEditingPost({
         ...editingPost,
         title_en: result.title,
@@ -111,7 +148,7 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
     try {
       const res = await fetch('/api/posts');
       if (!res.ok) throw new Error('Failed to fetch posts');
-      const json = await res.json();
+      const json: any = await res.json();
       const data = json.data || json;
       setPosts(data.posts || []);
     } catch (error: any) {
@@ -144,7 +181,7 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
       });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
+        const errData: any = await res.json().catch(() => ({}));
         throw new Error(errData.error || 'Save failed');
       }
 
@@ -171,7 +208,7 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
       });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
+        const errData: any = await res.json().catch(() => ({}));
         throw new Error(errData.error || 'Delete failed');
       }
 
@@ -279,9 +316,30 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
                   {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                   {isGenerating ? '生成中...' : '一键生成内容'}
                 </button>
+                {providers.length > 0 && (
+                  <label className="flex items-center gap-2 px-3 py-1 border border-ink/20 text-[10px] uppercase tracking-widest text-ink/60">
+                    <Cpu className="w-3 h-3" />
+                    <select
+                      value={providerId}
+                      onChange={(e) => chooseProvider(e.target.value)}
+                      className="bg-transparent text-[10px] uppercase tracking-widest text-ink outline-none cursor-pointer"
+                      title="选择 AI 服务商"
+                    >
+                      {providers.map((p) => (
+                        <option key={p.id} value={p.id}>{p.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
               </div>
               <button onClick={() => !isSaving && setIsModalOpen(false)} className="absolute top-6 right-6 sm:relative sm:top-0 sm:right-0"><X className="w-6 h-6" /></button>
             </div>
+
+            {lastProvider && (
+              <div className="mb-4 text-[10px] uppercase tracking-widest text-moss">
+                本次由 {lastProvider} 生成
+              </div>
+            )}
 
             {/* Modal 内错误提示 */}
             {error && (

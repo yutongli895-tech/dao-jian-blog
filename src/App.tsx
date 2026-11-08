@@ -43,7 +43,7 @@ export default function App() {
   const fetchPosts = async () => {
     try {
       const res = await fetch('/api/posts');
-      const json = await res.json();
+      const json: any = await res.json();
       // API 返回 { success: true, data: { posts: [...], pagination: {...} } }
       const data = Array.isArray(json) ? json : (json.data?.posts || json.results || []);
       setPosts(data as Post[]);
