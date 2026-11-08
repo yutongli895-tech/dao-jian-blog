@@ -35,7 +35,7 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // AI 服务商：只显示已绑定密钥的，选择存 localStorage（下次打开还是这家）
+  // AI 服务商：只显示已绑定密钥的。空字符串 = 自动（按订单顺序降级）
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [providerId, setProviderId] = useState<string>('');
   const [lastProvider, setLastProvider] = useState<string | null>(null);
@@ -47,9 +47,10 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
         if (!data?.providers) return;
         const usable: ProviderInfo[] = (data.providers as ProviderInfo[]).filter((p) => p.configured);
         setProviders(usable);
-        const saved = localStorage.getItem('daojian.provider');
-        const initial = usable.find((p) => p.id === saved)?.id || usable[0]?.id || '';
-        setProviderId(initial);
+        // 默认留空 = 自动降级。只有用户显式选过某家，才锁定那家。
+        const saved = localStorage.getItem('daojian.provider') || '';
+        const valid = usable.some((p) => p.id === saved) ? saved : '';
+        setProviderId(valid);
       })
       .catch(() => {
         /* 自检失败不影响写作，静默忽略 */
@@ -58,7 +59,8 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
 
   const chooseProvider = (id: string) => {
     setProviderId(id);
-    localStorage.setItem('daojian.provider', id);
+    if (id) localStorage.setItem('daojian.provider', id);
+    else localStorage.removeItem('daojian.provider');
   };
 
   const generateWithAI = async () => {
@@ -323,8 +325,9 @@ export const AdminDashboard = ({ token, onLogout }: { token: string; onLogout: (
                       value={providerId}
                       onChange={(e) => chooseProvider(e.target.value)}
                       className="bg-transparent text-[10px] uppercase tracking-widest text-ink outline-none cursor-pointer"
-                      title="选择 AI 服务商"
+                      title="选择 AI 服务商；选「自动」则某家失败时自动换下一家"
                     >
+                      <option value="">自动（失败自动换）</option>
                       {providers.map((p) => (
                         <option key={p.id} value={p.id}>{p.label}</option>
                       ))}
